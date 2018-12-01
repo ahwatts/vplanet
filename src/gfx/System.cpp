@@ -120,9 +120,9 @@ void gfx::System::initInstance(bool debug) {
     inst_ci.flags = 0;
     inst_ci.pApplicationInfo = &app_info;
     inst_ci.enabledLayerCount = static_cast<uint32_t>(wanted_layers.size());
-    inst_ci.ppEnabledLayerNames = wanted_layers.data();
+    inst_ci.ppEnabledLayerNames = wanted_layers.empty() ? nullptr : wanted_layers.data();
     inst_ci.enabledExtensionCount = static_cast<uint32_t>(wanted_extensions.size());
-    inst_ci.ppEnabledExtensionNames = wanted_extensions.data();
+    inst_ci.ppEnabledExtensionNames = wanted_extensions.empty() ? nullptr : wanted_extensions.data();
 
     VkResult rslt = vkCreateInstance(&inst_ci, nullptr, &m_instance);
     if (rslt != VK_SUCCESS) {
