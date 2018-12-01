@@ -110,9 +110,10 @@ void gfx::System::initInstance(bool debug) {
     app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     app_info.pNext = nullptr;
     app_info.pApplicationName = "vplanet";
-    app_info.applicationVersion = 0;
-    app_info.pEngineName = nullptr;
-    app_info.engineVersion = 0;
+    app_info.applicationVersion = VK_MAKE_VERSION(0, 1, 0);
+    app_info.pEngineName = "vplanet";
+    app_info.engineVersion = VK_MAKE_VERSION(0, 1, 0);
+    app_info.apiVersion = VK_API_VERSION_1_0;
 
     VkInstanceCreateInfo inst_ci{};
     inst_ci.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
