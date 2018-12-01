@@ -24,7 +24,7 @@ namespace gfx {
         void initSurface();
         void cleanupSurface();
 
-        void initDevice();
+        void initDevice(bool debug);
         void cleanupDevice();
 
         static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
@@ -52,6 +52,7 @@ namespace gfx {
         VkSurfaceKHR m_surface;
         VkDevice m_device;
         VkPhysicalDevice m_physical_device;
+        uint32_t m_graphics_queue_family, m_present_queue_family;
     };
 };
 
