@@ -14,6 +14,14 @@ namespace gfx {
         void init(bool debug);
         void dispose();
 
+        GLFWwindow* window() const;
+        VkInstance instance() const;
+        VkDevice device() const;
+        VkPhysicalDevice physicalDevice() const;
+        VkSurfaceKHR surface() const;
+        uint32_t graphicsQueueFamily() const;
+        uint32_t presentQueueFamily() const;
+
     private:
         void initInstance(bool debug);
         void cleanupInstance();
@@ -46,7 +54,6 @@ namespace gfx {
             const char *message);
 
         GLFWwindow *m_window;
-
         VkInstance m_instance;
         VkDebugReportCallbackEXT m_debug_callback;
         VkSurfaceKHR m_surface;

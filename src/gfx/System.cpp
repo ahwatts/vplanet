@@ -1,6 +1,6 @@
 // -*- mode: c++; c-basic-offset: 4; encoding: utf-8; -*-
 
-#include <limits>
+#include <cstdint>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -29,8 +29,8 @@ gfx::System::System(GLFWwindow *window)
       m_surface{VK_NULL_HANDLE},
       m_device{VK_NULL_HANDLE},
       m_physical_device{VK_NULL_HANDLE},
-      m_graphics_queue_family{std::numeric_limits<uint32_t>::max()},
-      m_present_queue_family{std::numeric_limits<uint32_t>::max()}
+      m_graphics_queue_family{UINT32_MAX},
+      m_present_queue_family{UINT32_MAX}
 {}
 
 gfx::System::~System() {
@@ -53,6 +53,34 @@ void gfx::System::dispose() {
     cleanupSurface();
     cleanupDebugCallback();
     cleanupInstance();
+}
+
+GLFWwindow* gfx::System::window() const {
+    return m_window;
+}
+
+VkInstance gfx::System::instance() const {
+    return m_instance;
+}
+
+VkDevice gfx::System::device() const {
+    return m_device;
+}
+
+VkPhysicalDevice gfx::System::physicalDevice() const {
+    return m_physical_device;
+}
+
+VkSurfaceKHR gfx::System::surface() const {
+    return m_surface;
+}
+
+uint32_t gfx::System::graphicsQueueFamily() const {
+    return m_graphics_queue_family;
+}
+
+uint32_t gfx::System::presentQueueFamily() const {
+    return m_present_queue_family;
 }
 
 void gfx::System::initInstance(bool debug) {
@@ -305,14 +333,12 @@ void gfx::System::cleanupDevice() {
         vkDestroyDevice(m_device, nullptr);
         m_device = VK_NULL_HANDLE;
         m_physical_device = VK_NULL_HANDLE;
-        m_graphics_queue_family = std::numeric_limits<uint32_t>::max();
-        m_present_queue_family = std::numeric_limits<uint32_t>::max();
+        m_graphics_queue_family = UINT32_MAX;
+        m_present_queue_family = UINT32_MAX;
     }
 }
 
 ChosenDeviceInfo choosePhysicalDevice(const std::vector<VkPhysicalDevice> &devices, VkSurfaceKHR surface, bool debug) {
-    const uint32_t MAX_INT = std::numeric_limits<uint32_t>::max();
-
     for (auto &device : devices) {
         // Does it have the properties we want?
         VkPhysicalDeviceProperties properties;
@@ -327,16 +353,16 @@ ChosenDeviceInfo choosePhysicalDevice(const std::vector<VkPhysicalDevice> &devic
         }
 
         // Do we have appropriate queue families for graphics / presentation?
-        uint32_t num_queue_families, graphics_queue = MAX_INT, present_queue = MAX_INT;
+        uint32_t num_queue_families, graphics_queue = UINT32_MAX, present_queue = UINT32_MAX;
         vkGetPhysicalDeviceQueueFamilyProperties(device, &num_queue_families, nullptr);
         std::vector<VkQueueFamilyProperties> queue_families{num_queue_families};
         vkGetPhysicalDeviceQueueFamilyProperties(device, &num_queue_families, queue_families.data());
         for (uint32_t id = 0; id < queue_families.size(); ++id) {
-            if (graphics_queue == MAX_INT && queue_families[id].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+            if (graphics_queue == UINT32_MAX && queue_families[id].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
                 graphics_queue = id;
             }
 
-            if (present_queue == MAX_INT) {
+            if (present_queue == UINT32_MAX) {
                 VkBool32 supports_present;
                 vkGetPhysicalDeviceSurfaceSupportKHR(device, id, surface, &supports_present);
                 if (supports_present == VK_TRUE) {
@@ -344,11 +370,11 @@ ChosenDeviceInfo choosePhysicalDevice(const std::vector<VkPhysicalDevice> &devic
                 }
             }
 
-            if (graphics_queue < MAX_INT && present_queue < MAX_INT) {
+            if (graphics_queue < UINT32_MAX && present_queue < UINT32_MAX) {
                 break;
             }
         }
-        if (graphics_queue == MAX_INT || present_queue == MAX_INT) {
+        if (graphics_queue == UINT32_MAX || present_queue == UINT32_MAX) {
             std::cerr << "Device " << properties.deviceName << " doesn't have suitable graphics or present queues\n";
             continue;
         }
@@ -421,8 +447,8 @@ ChosenDeviceInfo choosePhysicalDevice(const std::vector<VkPhysicalDevice> &devic
 
     return {
         VK_NULL_HANDLE,
-        MAX_INT,
-        MAX_INT,
+        UINT32_MAX,
+        UINT32_MAX,
     };
 }
 

@@ -7,7 +7,8 @@ Application::Application(GLFWwindow *window)
     : m_window{window},
       m_window_width{0},
       m_window_height{0},
-      m_gfx{window}
+      m_gfx{window},
+      m_present{&m_gfx}
 {
     glfwGetFramebufferSize(window, &m_window_width, &m_window_height);
     glfwSetWindowUserPointer(m_window, this);
@@ -19,8 +20,10 @@ Application::~Application() {
 
 void Application::init() {
     m_gfx.init(true);
+    m_present.init(true);
 }
 
 void Application::dispose() {
+    m_present.dispose();
     m_gfx.dispose();
 }
