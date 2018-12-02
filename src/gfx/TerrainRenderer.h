@@ -4,6 +4,7 @@
 #define _VPLANET_GFX_TERRAIN_RENDERER_H_
 
 #include "../vulkan.h"
+#include "Resource.h"
 
 namespace gfx {
     class System;
@@ -17,7 +18,13 @@ namespace gfx {
         void dispose();
 
     private:
+        void initShaderModules();
+        void cleanupShaderModules();
+
+        VkShaderModule createShaderModule(const Resource &rsrc);
+
         System *m_system;
+        VkShaderModule m_vertex_shader, m_fragment_shader;
     };
 }
 
