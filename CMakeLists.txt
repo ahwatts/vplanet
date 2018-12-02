@@ -18,6 +18,7 @@ find_package(glfw3 REQUIRED)
 add_executable(vplanet
     src/gfx/Presentation.cpp
     src/gfx/System.cpp
+    src/gfx/TerrainRenderer.cpp
     src/gfx/VulkanExt.cpp
     src/Application.cpp
     src/vplanet.cpp)
