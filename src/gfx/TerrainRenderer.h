@@ -30,6 +30,9 @@ namespace gfx {
         void initPipelineLayout();
         void cleanupPipelineLayout();
 
+        void initPipeline();
+        void cleanupPipeline();
+
         VkShaderModule createShaderModule(const Resource &rsrc);
 
         System *m_system;
@@ -37,6 +40,7 @@ namespace gfx {
         VkRenderPass m_render_pass;
         VkDescriptorSetLayout m_descriptor_set_layout;
         VkPipelineLayout m_pipeline_layout;
+        VkPipeline m_pipeline;
     };
 }
 

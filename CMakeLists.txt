@@ -3,7 +3,7 @@ project(vplanet)
 
 if(WIN32)
     if (CMAKE_COMPILER_IS_GNUCXX)
-        set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH};../deps/boost-msys;../deps/glfw-msys")
+        set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH};../deps/boost-msys;../deps/glfw-msys;../deps/glm")
     # elseif(MSVC AND "${CMAKE_SIZEOF_VOID_P}" STREQUAL 8)
     #     set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH};../deps/boost-msvc-x64;../deps/glfw-msvc-x64;../deps/glm")
     # elseif(MSVC)
@@ -35,6 +35,7 @@ set(Boost_USE_STATIC_LIBS "On")
 find_package(Boost REQUIRED COMPONENTS filesystem)
 find_package(Vulkan REQUIRED)
 find_package(glfw3 REQUIRED)
+find_package(glm REQUIRED)
 
 add_subdirectory(vendor/embed-resource)
 
@@ -49,10 +50,12 @@ add_executable(vplanet
     src/gfx/TerrainRenderer.cpp
     src/gfx/VulkanExt.cpp
     src/Application.cpp
+    src/Terrain.cpp
     src/vplanet.cpp
     ${EMBEDDED_SHADERS})
 target_compile_features(vplanet PUBLIC cxx_std_14)
 target_include_directories(vplanet PUBLIC vendor/embed-resource)
 target_link_libraries(vplanet PUBLIC
     glfw
+    glm
     Vulkan::Vulkan)
