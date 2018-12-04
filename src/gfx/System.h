@@ -3,6 +3,7 @@
 #ifndef _VPLANET_GFX_SYSTEM_H_
 #define _VPLANET_GFX_SYSTEM_H_
 
+#include <vector>
 #include "../vulkan.h"
 
 namespace gfx {
@@ -21,6 +22,12 @@ namespace gfx {
         VkSurfaceKHR surface() const;
         uint32_t graphicsQueueFamily() const;
         uint32_t presentQueueFamily() const;
+        VkSwapchainKHR swapchain() const;
+        VkSurfaceFormatKHR swapchainFormat() const;
+        VkExtent2D swapchainExtent() const;
+        const std::vector<VkImage>& swapchainImages() const;
+        const std::vector<VkImageView>& swapchainImageViews() const;
+        VkFormat depthFormat() const;
 
     private:
         void initInstance(bool debug);
@@ -34,6 +41,9 @@ namespace gfx {
 
         void initDevice(bool debug);
         void cleanupDevice();
+
+        void initSwapchain();
+        void cleanupSwapchain();
 
         static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
             VkDebugReportFlagsEXT flags,
@@ -60,6 +70,12 @@ namespace gfx {
         VkDevice m_device;
         VkPhysicalDevice m_physical_device;
         uint32_t m_graphics_queue_family, m_present_queue_family;
+        VkSwapchainKHR m_swapchain;
+        VkSurfaceFormatKHR m_swapchain_format;
+        VkExtent2D m_swapchain_extent;
+        std::vector<VkImage> m_swapchain_images;
+        std::vector<VkImageView> m_swapchain_image_views;
+        VkFormat m_depth_format;
     };
 };
 

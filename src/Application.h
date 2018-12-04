@@ -4,7 +4,6 @@
 #define _VPLANET_APPLICATION_H_
 
 #include "vulkan.h"
-#include "gfx/Presentation.h"
 #include "gfx/System.h"
 #include "gfx/TerrainRenderer.h"
 
@@ -20,7 +19,6 @@ private:
     GLFWwindow *m_window;
     int m_window_width, m_window_height;
     gfx::System m_gfx;
-    gfx::Presentation m_present;
     gfx::TerrainRenderer m_terrain_renderer;
 };
 

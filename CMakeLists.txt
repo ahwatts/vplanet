@@ -45,7 +45,6 @@ compile_spirv(SPIRV_SHADERS
 embed_resources(EMBEDDED_SHADERS ${SPIRV_SHADERS})
 
 add_executable(vplanet
-    src/gfx/Presentation.cpp
     src/gfx/System.cpp
     src/gfx/TerrainRenderer.cpp
     src/gfx/VulkanExt.cpp
