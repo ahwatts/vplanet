@@ -20,14 +20,15 @@ namespace gfx {
         VkDevice device() const;
         VkPhysicalDevice physicalDevice() const;
         VkSurfaceKHR surface() const;
+        VkSwapchainKHR swapchain() const;
+
         uint32_t graphicsQueueFamily() const;
         uint32_t presentQueueFamily() const;
-        VkSwapchainKHR swapchain() const;
         VkSurfaceFormatKHR swapchainFormat() const;
-        VkExtent2D swapchainExtent() const;
-        const std::vector<VkImage>& swapchainImages() const;
-        const std::vector<VkImageView>& swapchainImageViews() const;
         VkFormat depthFormat() const;
+        VkExtent2D swapchainExtent() const;
+
+        uint32_t chooseMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties) const;
 
     private:
         void initInstance(bool debug);
@@ -73,8 +74,6 @@ namespace gfx {
         VkSwapchainKHR m_swapchain;
         VkSurfaceFormatKHR m_swapchain_format;
         VkExtent2D m_swapchain_extent;
-        std::vector<VkImage> m_swapchain_images;
-        std::vector<VkImageView> m_swapchain_image_views;
         VkFormat m_depth_format;
     };
 };

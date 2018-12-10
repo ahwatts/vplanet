@@ -39,8 +39,6 @@ gfx::System::System(GLFWwindow *window)
       m_swapchain{VK_NULL_HANDLE},
       m_swapchain_format{VK_FORMAT_UNDEFINED, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR},
       m_swapchain_extent{0, 0},
-      m_swapchain_images{},
-      m_swapchain_image_views{},
       m_depth_format{VK_FORMAT_UNDEFINED}
 {}
 
@@ -112,16 +110,23 @@ VkExtent2D gfx::System::swapchainExtent() const {
     return m_swapchain_extent;
 }
 
-const std::vector<VkImage>& gfx::System::swapchainImages() const {
-    return m_swapchain_images;
-}
-
-const std::vector<VkImageView>& gfx::System::swapchainImageViews() const {
-    return m_swapchain_image_views;
-}
-
 VkFormat gfx::System::depthFormat() const {
     return m_depth_format;
+}
+
+uint32_t gfx::System::chooseMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties) const {
+    VkPhysicalDeviceMemoryProperties mem_props;
+    vkGetPhysicalDeviceMemoryProperties(m_physical_device, &mem_props);
+
+    for (uint32_t i = 0; i < mem_props.memoryTypeCount; ++i) {
+        if (type_filter & (1 << i) &&
+            (mem_props.memoryTypes[i].propertyFlags & properties) == properties)
+        {
+            return i;
+        }
+    }
+
+    return UINT32_MAX;
 }
 
 void gfx::System::initInstance(bool debug) {
@@ -586,55 +591,14 @@ void gfx::System::initSwapchain() {
         msg << "Could not (re-)create swapchain. Error code: " << rslt;
         throw std::runtime_error(msg.str());
     }
-
-    uint32_t num_swapchain_images;
-    vkGetSwapchainImagesKHR(m_device, m_swapchain, &num_swapchain_images, nullptr);
-    m_swapchain_images.resize(num_swapchain_images, VK_NULL_HANDLE);
-    m_swapchain_image_views.resize(num_swapchain_images, VK_NULL_HANDLE);
-    vkGetSwapchainImagesKHR(m_device, m_swapchain, &num_swapchain_images, m_swapchain_images.data());
-
-    for (int i = 0; i < num_swapchain_images; ++i) {
-        VkImageViewCreateInfo iv_ci;
-        iv_ci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        iv_ci.pNext = nullptr;
-        iv_ci.flags = 0;
-        iv_ci.image = m_swapchain_images[i];
-        iv_ci.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        iv_ci.format = m_swapchain_format.format;
-        iv_ci.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-        iv_ci.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-        iv_ci.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-        iv_ci.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-        iv_ci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        iv_ci.subresourceRange.baseMipLevel = 0;
-        iv_ci.subresourceRange.levelCount = 1;
-        iv_ci.subresourceRange.baseArrayLayer = 0;
-        iv_ci.subresourceRange.layerCount = 1;
-
-        rslt = vkCreateImageView(m_device, &iv_ci, nullptr, &m_swapchain_image_views[i]);
-        if (rslt != VK_SUCCESS) {
-            std::stringstream msg{};
-            msg << "Could not create swapchain image view. Error code: " << rslt;
-            throw std::runtime_error(msg.str());
-        }
-    }
 }
 
 void gfx::System::cleanupSwapchain() {
-    if (m_device != VK_NULL_HANDLE) {
-        if (m_swapchain != VK_NULL_HANDLE) {
-            vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
-            m_swapchain = VK_NULL_HANDLE;
-        }
-
-        for (auto &view : m_swapchain_image_views) {
-            vkDestroyImageView(m_device, view, nullptr);
-        }
-
+    if (m_device != VK_NULL_HANDLE && m_swapchain != VK_NULL_HANDLE) {
+        vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
+        m_swapchain = VK_NULL_HANDLE;
         m_swapchain_extent = {0, 0};
         m_swapchain_format = {VK_FORMAT_UNDEFINED, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
-        m_swapchain_images.clear();
-        m_swapchain_image_views.clear();
     }
 }
 

@@ -17,6 +17,14 @@ namespace gfx {
         void init();
         void dispose();
 
+        void recordCommands(
+            VkCommandBuffer &cmd_buf,
+            VkBuffer &vertices,
+            VkBuffer &indices,
+            uint32_t num_indices,
+            VkDescriptorSet &xforms,
+            VkFramebuffer &dst);
+
     private:
         void initShaderModules();
         void cleanupShaderModules();

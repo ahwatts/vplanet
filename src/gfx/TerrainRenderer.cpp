@@ -45,6 +45,40 @@ void gfx::TerrainRenderer::dispose() {
     cleanupPipelineLayout();
 }
 
+void gfx::TerrainRenderer::recordCommands(
+    VkCommandBuffer &cmd_buf,
+    VkBuffer &vertices,
+    VkBuffer &indices,
+    uint32_t num_indices,
+    VkDescriptorSet &xforms,
+    VkFramebuffer &dst)
+{
+    VkClearValue clear_values[2];
+    clear_values[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
+    clear_values[1].depthStencil = { 1.0f, 0 };
+
+    VkRenderPassBeginInfo rp_bi;
+    rp_bi.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    rp_bi.pNext = nullptr;
+    rp_bi.renderPass = m_render_pass;
+    rp_bi.framebuffer = dst;
+    rp_bi.renderArea.offset = { 0, 0 };
+    rp_bi.renderArea.extent = m_system->swapchainExtent();
+    rp_bi.clearValueCount = 2;
+    rp_bi.pClearValues = clear_values;
+
+    VkBuffer vertex_buffers[1] = { vertices };
+    VkDeviceSize vertex_buffer_offsets[1] = { 0 };
+
+    vkCmdBeginRenderPass(cmd_buf, &rp_bi, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+    vkCmdBindVertexBuffers(cmd_buf, 0, 1, vertex_buffers, vertex_buffer_offsets);
+    vkCmdBindIndexBuffer(cmd_buf, indices, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layout, 0, 1, &xforms, 0, nullptr);
+    vkCmdDrawIndexed(cmd_buf, num_indices, 1, 0, 0, 0);
+    vkCmdEndRenderPass(cmd_buf);
+}
+
 void gfx::TerrainRenderer::initShaderModules() {
     if (m_vertex_shader == VK_NULL_HANDLE) {
         m_vertex_shader = createShaderModule(TERRAIN_VERT_BYTECODE);
