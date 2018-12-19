@@ -15,6 +15,7 @@ namespace gfx {
 
         VkFormat format() const;
         VkImageView imageView() const;
+        bool hasStencilComponent() const;
 
         void init();
         void dispose();
@@ -22,6 +23,8 @@ namespace gfx {
     private:
         void initDepthResources();
         void cleanupDepthResources();
+
+        void transitionImageLayout();
 
         System *m_system;
 

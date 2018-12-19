@@ -46,6 +46,7 @@ compile_spirv(SPIRV_SHADERS
 embed_resources(EMBEDDED_SHADERS ${SPIRV_SHADERS})
 
 add_executable(vplanet
+    src/gfx/Commands.cpp
     src/gfx/DepthBuffer.cpp
     src/gfx/Swapchain.cpp
     src/gfx/System.cpp

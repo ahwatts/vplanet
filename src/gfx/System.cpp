@@ -33,6 +33,7 @@ gfx::System::System(GLFWwindow *window)
       m_device{VK_NULL_HANDLE},
       m_graphics_queue_family{UINT32_MAX},
       m_present_queue_family{UINT32_MAX},
+      m_commands{this},
       m_swapchain{this},
       m_depth_buffer{this},
       m_terrain_renderer{this}
@@ -51,6 +52,7 @@ void gfx::System::init(bool debug) {
 
     initSurface();
     initDevice(debug);
+    m_commands.init();
     m_swapchain.init();
     m_depth_buffer.init();
     m_terrain_renderer.init(m_swapchain.imageViews(), m_depth_buffer);
@@ -60,6 +62,7 @@ void gfx::System::dispose() {
     m_terrain_renderer.dispose();
     m_depth_buffer.dispose();
     m_swapchain.dispose();
+    m_commands.dispose();
     cleanupDevice();
     cleanupSurface();
     cleanupDebugCallback();
@@ -92,6 +95,10 @@ uint32_t gfx::System::graphicsQueueFamily() const {
 
 uint32_t gfx::System::presentQueueFamily() const {
     return m_present_queue_family;
+}
+
+const gfx::Commands& gfx::System::commands() const {
+    return m_commands;
 }
 
 const gfx::Swapchain& gfx::System::swapchain() const {

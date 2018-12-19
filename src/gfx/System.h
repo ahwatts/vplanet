@@ -5,6 +5,7 @@
 
 #include "../vulkan.h"
 
+#include "Commands.h"
 #include "DepthBuffer.h"
 #include "Swapchain.h"
 #include "TerrainRenderer.h"
@@ -26,6 +27,7 @@ namespace gfx {
         uint32_t graphicsQueueFamily() const;
         uint32_t presentQueueFamily() const;
 
+        const Commands& commands() const;
         const Swapchain& swapchain() const;
         const DepthBuffer& depthBuffer() const;
 
@@ -72,7 +74,7 @@ namespace gfx {
         VkDevice m_device;
         uint32_t m_graphics_queue_family, m_present_queue_family;
 
-        // Presentation-related things.
+        Commands m_commands;
         Swapchain m_swapchain;
         DepthBuffer m_depth_buffer;
         TerrainRenderer m_terrain_renderer;
