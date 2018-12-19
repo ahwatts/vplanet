@@ -17,6 +17,8 @@ namespace gfx {
         void init();
         void dispose();
 
+        VkRenderPass renderPass() const;
+
         void recordCommands(
             VkCommandBuffer &cmd_buf,
             VkBuffer &vertices,

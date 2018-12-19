@@ -6,6 +6,10 @@
 #include <vector>
 #include "../vulkan.h"
 
+#include "DepthBuffer.h"
+#include "Swapchain.h"
+#include "TerrainRenderer.h"
+
 namespace gfx {
     class System {
     public:
@@ -20,13 +24,11 @@ namespace gfx {
         VkDevice device() const;
         VkPhysicalDevice physicalDevice() const;
         VkSurfaceKHR surface() const;
-        VkSwapchainKHR swapchain() const;
-
         uint32_t graphicsQueueFamily() const;
         uint32_t presentQueueFamily() const;
-        VkSurfaceFormatKHR swapchainFormat() const;
-        VkFormat depthFormat() const;
-        VkExtent2D swapchainExtent() const;
+
+        const Swapchain& swapchain() const;
+        const DepthBuffer& depthBuffer() const;
 
         uint32_t chooseMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties) const;
 
@@ -42,9 +44,6 @@ namespace gfx {
 
         void initDevice(bool debug);
         void cleanupDevice();
-
-        void initSwapchain();
-        void cleanupSwapchain();
 
         static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
             VkDebugReportFlagsEXT flags,
@@ -65,16 +64,19 @@ namespace gfx {
             const char *message);
 
         GLFWwindow *m_window;
+
+        // Instance, device, debug callback.
         VkInstance m_instance;
         VkDebugReportCallbackEXT m_debug_callback;
         VkSurfaceKHR m_surface;
-        VkDevice m_device;
         VkPhysicalDevice m_physical_device;
+        VkDevice m_device;
         uint32_t m_graphics_queue_family, m_present_queue_family;
-        VkSwapchainKHR m_swapchain;
-        VkSurfaceFormatKHR m_swapchain_format;
-        VkExtent2D m_swapchain_extent;
-        VkFormat m_depth_format;
+
+        // Presentation-related things.
+        Swapchain m_swapchain;
+        DepthBuffer m_depth_buffer;
+        TerrainRenderer m_terrain_renderer;
     };
 };
 

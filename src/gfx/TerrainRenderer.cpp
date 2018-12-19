@@ -45,6 +45,10 @@ void gfx::TerrainRenderer::dispose() {
     cleanupPipelineLayout();
 }
 
+VkRenderPass gfx::TerrainRenderer::renderPass() const {
+    return m_render_pass;
+}
+
 void gfx::TerrainRenderer::recordCommands(
     VkCommandBuffer &cmd_buf,
     VkBuffer &vertices,
@@ -63,7 +67,7 @@ void gfx::TerrainRenderer::recordCommands(
     rp_bi.renderPass = m_render_pass;
     rp_bi.framebuffer = dst;
     rp_bi.renderArea.offset = { 0, 0 };
-    rp_bi.renderArea.extent = m_system->swapchainExtent();
+    rp_bi.renderArea.extent = m_system->swapchain().extent();
     rp_bi.clearValueCount = 2;
     rp_bi.pClearValues = clear_values;
 
@@ -131,8 +135,10 @@ void gfx::TerrainRenderer::initRenderPass() {
     }
 
     VkDevice device = m_system->device();
-    VkFormat color_format = m_system->swapchainFormat().format;
-    VkFormat depth_format = m_system->depthFormat();
+    const Swapchain &swapchain = m_system->swapchain();
+    const DepthBuffer &depth_buffer = m_system->depthBuffer();
+    VkFormat color_format = swapchain.format().format;
+    VkFormat depth_format = depth_buffer.format();
 
     VkAttachmentDescription attachments[2];
 
@@ -287,7 +293,7 @@ void gfx::TerrainRenderer::initPipeline() {
     }
 
     VkDevice device = m_system->device();
-    VkExtent2D extent = m_system->swapchainExtent();
+    VkExtent2D extent = m_system->swapchain().extent();
 
     VkPipelineShaderStageCreateInfo ss_ci[2];
     ss_ci[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
