@@ -1,7 +1,5 @@
 // -*- mode: c++; c-basic-offset: 4; encoding: utf-8; -*-
 
-#include <algorithm>
-#include <cstdint>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -9,8 +7,10 @@
 
 #include "../vulkan.h"
 
+#include "DepthBuffer.h"
 #include "Swapchain.h"
 #include "System.h"
+#include "TerrainRenderer.h"
 
 struct ChosenDeviceInfo {
     VkPhysicalDevice device;
@@ -53,7 +53,7 @@ void gfx::System::init(bool debug) {
     initDevice(debug);
     m_swapchain.init();
     m_depth_buffer.init();
-    m_terrain_renderer.init();
+    m_terrain_renderer.init(m_swapchain.imageViews(), m_depth_buffer);
 }
 
 void gfx::System::dispose() {

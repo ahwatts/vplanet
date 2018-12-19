@@ -3,7 +3,9 @@
 #ifndef _VPLANET_GFX_TERRAIN_RENDERER_H_
 #define _VPLANET_GFX_TERRAIN_RENDERER_H_
 
+#include <vector>
 #include "../vulkan.h"
+#include "DepthBuffer.h"
 #include "Resource.h"
 
 namespace gfx {
@@ -14,7 +16,7 @@ namespace gfx {
         TerrainRenderer(System *system);
         ~TerrainRenderer();
 
-        void init();
+        void init(const std::vector<VkImageView> &color_buffers, const DepthBuffer &depth_buffer);
         void dispose();
 
         VkRenderPass renderPass() const;
@@ -25,7 +27,7 @@ namespace gfx {
             VkBuffer &indices,
             uint32_t num_indices,
             VkDescriptorSet &xforms,
-            VkFramebuffer &dst);
+            uint32_t framebuffer_index);
 
     private:
         void initShaderModules();
@@ -43,6 +45,9 @@ namespace gfx {
         void initPipeline();
         void cleanupPipeline();
 
+        void initFramebuffers(const std::vector<VkImageView> &color_buffers, const DepthBuffer &depth_buffer);
+        void cleanupFramebuffers();
+
         VkShaderModule createShaderModule(const Resource &rsrc);
 
         System *m_system;
@@ -51,6 +56,7 @@ namespace gfx {
         VkDescriptorSetLayout m_descriptor_set_layout;
         VkPipelineLayout m_pipeline_layout;
         VkPipeline m_pipeline;
+        std::vector<VkFramebuffer> m_framebuffers;
     };
 }
 

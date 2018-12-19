@@ -1,9 +1,12 @@
 // -*- mode: c++; c-basic-offset: 4; encoding: utf-8; -*-
 
+#include <array>
 #include <sstream>
+#include <vector>
 #include "../vulkan.h"
-#include "System.h"
 #include "../Terrain.h"
+#include "DepthBuffer.h"
+#include "System.h"
 #include "TerrainRenderer.h"
 
 const Resource TERRAIN_VERT_BYTECODE = LOAD_RESOURCE(terrain_vert_spv);
@@ -16,14 +19,15 @@ gfx::TerrainRenderer::TerrainRenderer(System *system)
       m_render_pass{VK_NULL_HANDLE},
       m_descriptor_set_layout{VK_NULL_HANDLE},
       m_pipeline_layout{VK_NULL_HANDLE},
-      m_pipeline{VK_NULL_HANDLE}
+      m_pipeline{VK_NULL_HANDLE},
+      m_framebuffers{}
 {}
 
 gfx::TerrainRenderer::~TerrainRenderer() {
     dispose();
 }
 
-void gfx::TerrainRenderer::init() {
+void gfx::TerrainRenderer::init(const std::vector<VkImageView> &color_buffers, const gfx::DepthBuffer &depth_buffer) {
     if (m_system == nullptr || m_system->device() == VK_NULL_HANDLE) {
         std::stringstream msg;
         msg << "Cannot initialize terrain renderer before system";
@@ -35,9 +39,11 @@ void gfx::TerrainRenderer::init() {
     initDescriptorSetLayout();
     initPipelineLayout();
     initPipeline();
+    initFramebuffers(color_buffers, depth_buffer);
 }
 
 void gfx::TerrainRenderer::dispose() {
+    cleanupFramebuffers();
     cleanupPipeline();
     cleanupShaderModules();
     cleanupRenderPass();
@@ -55,7 +61,7 @@ void gfx::TerrainRenderer::recordCommands(
     VkBuffer &indices,
     uint32_t num_indices,
     VkDescriptorSet &xforms,
-    VkFramebuffer &dst)
+    uint32_t framebuffer_index)
 {
     VkClearValue clear_values[2];
     clear_values[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
@@ -65,7 +71,7 @@ void gfx::TerrainRenderer::recordCommands(
     rp_bi.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     rp_bi.pNext = nullptr;
     rp_bi.renderPass = m_render_pass;
-    rp_bi.framebuffer = dst;
+    rp_bi.framebuffer = m_framebuffers[framebuffer_index];
     rp_bi.renderArea.offset = { 0, 0 };
     rp_bi.renderArea.extent = m_system->swapchain().extent();
     rp_bi.clearValueCount = 2;
@@ -455,4 +461,49 @@ void gfx::TerrainRenderer::cleanupPipeline() {
         vkDestroyPipeline(device, m_pipeline, nullptr);
         m_pipeline = VK_NULL_HANDLE;
     }
+}
+
+void gfx::TerrainRenderer::initFramebuffers(const std::vector<VkImageView> &color_buffers, const DepthBuffer &depth_buffer) {
+    if (m_framebuffers.size() > 0) {
+        return;
+    }
+
+    VkDevice device = m_system->device();
+    VkExtent2D extent = m_system->swapchain().extent();
+
+    m_framebuffers.resize(color_buffers.size());
+    for (uint32_t i = 0; i < color_buffers.size(); ++i) {
+        std::array<VkImageView, 2> attachments{
+            color_buffers[i],
+            depth_buffer.imageView(),
+        };
+
+        VkFramebufferCreateInfo fb_ci;
+        fb_ci.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        fb_ci.pNext = nullptr;
+        fb_ci.flags = 0;
+        fb_ci.renderPass = m_render_pass;
+        fb_ci.attachmentCount = attachments.size();
+        fb_ci.pAttachments = attachments.data();
+        fb_ci.width = extent.width;
+        fb_ci.height = extent.height;
+        fb_ci.layers = 1;
+
+        VkResult rslt = vkCreateFramebuffer(device, &fb_ci, nullptr, &m_framebuffers[i]);
+        if (rslt != VK_SUCCESS) {
+            std::stringstream msg;
+            msg << "Unable to create terrain framebuffer. Error code: " << rslt;
+            throw std::runtime_error(msg.str());
+        }
+    }
+}
+
+void gfx::TerrainRenderer::cleanupFramebuffers() {
+    VkDevice device = m_system->device();
+    if (device != VK_NULL_HANDLE) {
+        for (auto &framebuffer : m_framebuffers) {
+            vkDestroyFramebuffer(device, framebuffer, nullptr);
+        }
+    }
+    m_framebuffers.clear();
 }

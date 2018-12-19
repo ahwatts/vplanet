@@ -3,7 +3,6 @@
 #ifndef _VPLANET_GFX_SYSTEM_H_
 #define _VPLANET_GFX_SYSTEM_H_
 
-#include <vector>
 #include "../vulkan.h"
 
 #include "DepthBuffer.h"
@@ -65,7 +64,7 @@ namespace gfx {
 
         GLFWwindow *m_window;
 
-        // Instance, device, debug callback.
+        // Instance, surface, device, debug callback.
         VkInstance m_instance;
         VkDebugReportCallbackEXT m_debug_callback;
         VkSurfaceKHR m_surface;
