@@ -3,8 +3,10 @@
 #ifndef _VPLANET_GFX_SYSTEM_H_
 #define _VPLANET_GFX_SYSTEM_H_
 
+#include <vector>
 #include "../vulkan.h"
 
+#include "../Terrain.h"
 #include "Commands.h"
 #include "DepthBuffer.h"
 #include "Swapchain.h"
@@ -28,8 +30,11 @@ namespace gfx {
         uint32_t presentQueueFamily() const;
 
         const Commands& commands() const;
-        const Swapchain& swapchain() const;
         const DepthBuffer& depthBuffer() const;
+        const Swapchain& swapchain() const;
+        const TerrainRenderer& terrainRenderer() const;
+
+        void setTerrainGeometry(const std::vector<TerrainVertex> &vertices, const std::vector<uint32_t> &elements);
 
         uint32_t chooseMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties) const;
 
@@ -66,7 +71,6 @@ namespace gfx {
 
         GLFWwindow *m_window;
 
-        // Instance, surface, device, debug callback.
         VkInstance m_instance;
         VkDebugReportCallbackEXT m_debug_callback;
         VkSurfaceKHR m_surface;

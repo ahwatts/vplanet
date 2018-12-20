@@ -53,6 +53,9 @@ add_executable(vplanet
     src/gfx/TerrainRenderer.cpp
     src/gfx/VulkanExt.cpp
     src/Application.cpp
+    src/Curve.cpp
+    src/Models.cpp
+    src/Noise.cpp
     src/Terrain.cpp
     src/vplanet.cpp
     ${EMBEDDED_SHADERS})
