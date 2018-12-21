@@ -1,6 +1,13 @@
 // -*- mode: c++; c-basic-offset: 4; encoding: utf-8; -*-
 
+#include <chrono>
+
 #include "vulkan.h"
+
+#include "glm_defines.h"
+#include <glm/vec3.hpp>
+#include <glm/mat4x4.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include "Application.h"
 #include "Curve.h"
@@ -11,7 +18,8 @@ Application::Application(GLFWwindow *window)
     : m_window{window},
       m_window_width{0},
       m_window_height{0},
-      m_gfx{window}
+      m_gfx{window},
+      m_xforms{}
 {
     glfwGetFramebufferSize(window, &m_window_width, &m_window_height);
     glfwSetWindowUserPointer(m_window, this);
@@ -38,8 +46,30 @@ void Application::init() {
 
     Terrain terrain{2.0, 5, curved_noise};
     m_gfx.setTerrainGeometry(terrain.vertices(), terrain.elements());
+
+    m_xforms.model = glm::mat4x4{1.0};
+    m_xforms.view = glm::lookAt(
+        glm::vec3{0.0, 0.0, 5.0},
+        glm::vec3{0.0, 0.0, 0.0},
+        glm::vec3{0.0, 1.0, 0.0});
+    m_xforms.projection = glm::perspectiveFov(
+        20.0f,
+        static_cast<float>(m_window_width),
+        static_cast<float>(m_window_height),
+        0.1f, 100.0f);
 }
 
 void Application::dispose() {
     m_gfx.dispose();
+}
+
+void Application::run() {
+    static auto start_time = std::chrono::high_resolution_clock::now();
+    while (!glfwWindowShouldClose(m_window)) {
+        auto current_time = std::chrono::high_resolution_clock::now();
+        float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
+        m_xforms.model = glm::rotate(glm::mat4x4{1.0}, time * glm::radians(90.0f), glm::vec3{0.0, 0.0, 1.0});
+        m_gfx.setTransforms(m_xforms, 0);
+        glfwPollEvents();
+    }
 }

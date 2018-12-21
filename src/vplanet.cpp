@@ -21,10 +21,7 @@ int main(int argc, char **argv) {
 
     try {
         app.init();
-
-        while (!glfwWindowShouldClose(window)) {
-            glfwPollEvents();
-        }
+        app.run();
     } catch (std::runtime_error &ex) {
         std::cerr << "Error running vplanet: " << ex.what() << "\n";
     }
