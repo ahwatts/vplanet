@@ -109,6 +109,10 @@ const gfx::DepthBuffer& gfx::System::depthBuffer() const {
     return m_depth_buffer;
 }
 
+void gfx::System::setTerrainGeometry(const std::vector<TerrainVertex> &verts, const std::vector<uint32_t> &elems) {
+    m_terrain_renderer.setGeometry(verts, elems);
+}
+
 uint32_t gfx::System::chooseMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties) const {
     VkPhysicalDeviceMemoryProperties mem_props;
     vkGetPhysicalDeviceMemoryProperties(m_physical_device, &mem_props);
@@ -122,6 +126,72 @@ uint32_t gfx::System::chooseMemoryType(uint32_t type_filter, VkMemoryPropertyFla
     }
 
     return UINT32_MAX;
+}
+
+void gfx::System::createBuffer(
+    VkDeviceSize size,
+    VkBufferUsageFlags usage,
+    VkMemoryPropertyFlags mem_props,
+    VkBuffer &buffer,
+    VkDeviceMemory &memory)
+{
+    VkBufferCreateInfo buf_ci;
+    buf_ci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    buf_ci.pNext = nullptr;
+    buf_ci.flags = 0;
+    buf_ci.size = size;
+    buf_ci.usage = usage;
+    buf_ci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    buf_ci.queueFamilyIndexCount = 0;
+    buf_ci.pQueueFamilyIndices = nullptr;
+
+    VkResult rslt = vkCreateBuffer(m_device, &buf_ci, nullptr, &buffer);
+    if (rslt != VK_SUCCESS) {
+        std::stringstream msg;
+        msg << "Unable to create buffer. Error code: " << rslt;
+        throw std::runtime_error(msg.str());
+    }
+
+    VkMemoryRequirements mem_reqs;
+    vkGetBufferMemoryRequirements(m_device, buffer, &mem_reqs);
+
+    uint32_t mem_type = chooseMemoryType(mem_reqs.memoryTypeBits, mem_props);
+    if (mem_type == UINT32_MAX) {
+        std::stringstream msg;
+        msg << "No memory type appropriate for buffer";
+        throw std::runtime_error(msg.str());
+    }
+
+    VkMemoryAllocateInfo mem_ai;
+    mem_ai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    mem_ai.pNext = nullptr;
+    mem_ai.allocationSize = mem_reqs.size;
+    mem_ai.memoryTypeIndex = mem_type;
+
+    rslt = vkAllocateMemory(m_device, &mem_ai, nullptr, &memory);
+    if (rslt != VK_SUCCESS) {
+        std::stringstream msg;
+        msg << "Unable to allocate buffer memory. Error code: " << rslt;
+        throw std::runtime_error(msg.str());
+    }
+
+    rslt = vkBindBufferMemory(m_device, buffer, memory, 0);
+    if (rslt != VK_SUCCESS) {
+        std::stringstream msg;
+        msg << "Unable to bind buffer memory to buffer. Error code: " << rslt;
+        throw std::runtime_error(msg.str());
+    }
+}
+
+void gfx::System::copyBuffer(VkBuffer dst, VkBuffer src, VkDeviceSize size) {
+    VkBufferCopy region;
+    region.srcOffset = 0;
+    region.size = size;
+    region.dstOffset = 0;
+
+    VkCommandBuffer cb = m_commands.beginOneShot();
+    vkCmdCopyBuffer(cb, src, dst, 1, &region);
+    m_commands.endOneShot(cb);
 }
 
 void gfx::System::initInstance(bool debug) {

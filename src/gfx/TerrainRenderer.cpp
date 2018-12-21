@@ -1,6 +1,7 @@
 // -*- mode: c++; c-basic-offset: 4; encoding: utf-8; -*-
 
 #include <array>
+#include <cstring>
 #include <sstream>
 #include <vector>
 #include "../vulkan.h"
@@ -20,7 +21,12 @@ gfx::TerrainRenderer::TerrainRenderer(System *system)
       m_descriptor_set_layout{VK_NULL_HANDLE},
       m_pipeline_layout{VK_NULL_HANDLE},
       m_pipeline{VK_NULL_HANDLE},
-      m_framebuffers{}
+      m_framebuffers{},
+      m_num_indices{0},
+      m_vertex_buffer{VK_NULL_HANDLE},
+      m_index_buffer{VK_NULL_HANDLE},
+      m_vertex_buffer_memory{VK_NULL_HANDLE},
+      m_index_buffer_memory{VK_NULL_HANDLE}
 {}
 
 gfx::TerrainRenderer::~TerrainRenderer() {
@@ -55,13 +61,14 @@ VkRenderPass gfx::TerrainRenderer::renderPass() const {
     return m_render_pass;
 }
 
-void gfx::TerrainRenderer::recordCommands(
-    VkCommandBuffer &cmd_buf,
-    VkBuffer &vertices,
-    VkBuffer &indices,
-    uint32_t num_indices,
-    VkDescriptorSet &xforms,
-    uint32_t framebuffer_index)
+void gfx::TerrainRenderer::setGeometry(const std::vector<TerrainVertex> &verts, const std::vector<uint32_t> &indices) {
+    cleanupGeometryBuffers();
+    initGeometryBuffer(m_vertex_buffer, m_vertex_buffer_memory, verts, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    initGeometryBuffer(m_index_buffer, m_index_buffer_memory, indices, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+    m_num_indices = indices.size();
+}
+
+void gfx::TerrainRenderer::recordCommands(VkCommandBuffer &cmd_buf, VkDescriptorSet &xforms, uint32_t framebuffer_index)
 {
     VkClearValue clear_values[2];
     clear_values[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
@@ -77,15 +84,15 @@ void gfx::TerrainRenderer::recordCommands(
     rp_bi.clearValueCount = 2;
     rp_bi.pClearValues = clear_values;
 
-    VkBuffer vertex_buffers[1] = { vertices };
+    VkBuffer vertex_buffers[1] = { m_vertex_buffer };
     VkDeviceSize vertex_buffer_offsets[1] = { 0 };
 
     vkCmdBeginRenderPass(cmd_buf, &rp_bi, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
     vkCmdBindVertexBuffers(cmd_buf, 0, 1, vertex_buffers, vertex_buffer_offsets);
-    vkCmdBindIndexBuffer(cmd_buf, indices, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindIndexBuffer(cmd_buf, m_index_buffer, 0, VK_INDEX_TYPE_UINT32);
     vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layout, 0, 1, &xforms, 0, nullptr);
-    vkCmdDrawIndexed(cmd_buf, num_indices, 1, 0, 0, 0);
+    vkCmdDrawIndexed(cmd_buf, m_num_indices, 1, 0, 0, 0);
     vkCmdEndRenderPass(cmd_buf);
 }
 
@@ -506,4 +513,65 @@ void gfx::TerrainRenderer::cleanupFramebuffers() {
         }
     }
     m_framebuffers.clear();
+}
+
+template<typename T>
+void gfx::TerrainRenderer::initGeometryBuffer(VkBuffer &dst_buffer, VkDeviceMemory &dst_memory, const std::vector<T> &data, VkBufferUsageFlags usage) {
+    VkDevice device = m_system->device();
+    VkDeviceSize buffer_size = sizeof(T) * data.size();
+    VkBuffer staging_buffer{VK_NULL_HANDLE};
+    VkDeviceMemory staging_buffer_memory{VK_NULL_HANDLE};
+    m_system->createBuffer(
+        buffer_size,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        staging_buffer, staging_buffer_memory);
+
+    void *mapped_data = nullptr;
+    VkResult rslt = vkMapMemory(device, staging_buffer_memory, 0, buffer_size, 0, &mapped_data);
+    if (rslt != VK_SUCCESS) {
+        std::stringstream msg;
+        msg << "Cannot map staging buffer memory. Error code: " << rslt;
+        throw std::runtime_error(msg.str());
+    }
+
+    std::memcpy(mapped_data, data.data(), buffer_size);
+    vkUnmapMemory(device, staging_buffer_memory);
+
+    m_system->createBuffer(
+        buffer_size,
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        dst_buffer, dst_memory);
+
+    m_system->copyBuffer(dst_buffer, staging_buffer, buffer_size);
+
+    vkDestroyBuffer(device, staging_buffer, nullptr);
+    vkFreeMemory(device, staging_buffer_memory, nullptr);
+}
+
+void gfx::TerrainRenderer::cleanupGeometryBuffers() {
+    VkDevice device = m_system->device();
+    m_num_indices = 0;
+    if (device != VK_NULL_HANDLE) {
+        if (m_vertex_buffer != VK_NULL_HANDLE) {
+            vkDestroyBuffer(device, m_vertex_buffer, nullptr);
+            m_vertex_buffer = VK_NULL_HANDLE;
+        }
+
+        if (m_index_buffer != VK_NULL_HANDLE) {
+            vkDestroyBuffer(device, m_index_buffer, nullptr);
+            m_index_buffer = VK_NULL_HANDLE;
+        }
+
+        if (m_vertex_buffer_memory != VK_NULL_HANDLE) {
+            vkFreeMemory(device, m_vertex_buffer_memory, nullptr);
+            m_vertex_buffer_memory = VK_NULL_HANDLE;
+        }
+
+        if (m_index_buffer_memory != VK_NULL_HANDLE) {
+            vkFreeMemory(device, m_index_buffer_memory, nullptr);
+            m_index_buffer_memory = VK_NULL_HANDLE;
+        }
+    }
 }

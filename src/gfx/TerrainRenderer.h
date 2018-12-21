@@ -7,10 +7,9 @@
 #include "../vulkan.h"
 #include "DepthBuffer.h"
 #include "Resource.h"
+#include "System.h"
 
 namespace gfx {
-    class System;
-
     class TerrainRenderer {
     public:
         TerrainRenderer(System *system);
@@ -21,13 +20,8 @@ namespace gfx {
 
         VkRenderPass renderPass() const;
 
-        void recordCommands(
-            VkCommandBuffer &cmd_buf,
-            VkBuffer &vertices,
-            VkBuffer &indices,
-            uint32_t num_indices,
-            VkDescriptorSet &xforms,
-            uint32_t framebuffer_index);
+        void setGeometry(const std::vector<TerrainVertex> &verts, const std::vector<uint32_t> &elems);
+        void recordCommands(VkCommandBuffer &cmd_buf, VkDescriptorSet &xforms, uint32_t framebuffer_index);
 
     private:
         void initShaderModules();
@@ -48,6 +42,10 @@ namespace gfx {
         void initFramebuffers(const std::vector<VkImageView> &color_buffers, const DepthBuffer &depth_buffer);
         void cleanupFramebuffers();
 
+        template<typename T>
+        void initGeometryBuffer(VkBuffer &dst_buffer, VkDeviceMemory &dst_memory, const std::vector<T> &data, VkBufferUsageFlags buffer_type);
+        void cleanupGeometryBuffers();
+
         VkShaderModule createShaderModule(const Resource &rsrc);
 
         System *m_system;
@@ -57,6 +55,9 @@ namespace gfx {
         VkPipelineLayout m_pipeline_layout;
         VkPipeline m_pipeline;
         std::vector<VkFramebuffer> m_framebuffers;
+        uint32_t m_num_indices;
+        VkBuffer m_vertex_buffer, m_index_buffer;
+        VkDeviceMemory m_vertex_buffer_memory, m_index_buffer_memory;
     };
 }
 

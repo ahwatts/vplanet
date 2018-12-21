@@ -6,6 +6,9 @@
 #include <vector>
 #include "../vulkan.h"
 
+#include "../glm_defines.h"
+#include <glm/mat4x4.hpp>
+
 #include "../Terrain.h"
 #include "Commands.h"
 #include "DepthBuffer.h"
@@ -35,8 +38,20 @@ namespace gfx {
         const TerrainRenderer& terrainRenderer() const;
 
         void setTerrainGeometry(const std::vector<TerrainVertex> &vertices, const std::vector<uint32_t> &elements);
+        void setModelTransform(const glm::mat4x4 &xform);
+        void setViewTransform(const glm::mat4x4 &xform);
+        void setProjectionTransform(const glm::mat4x4 &xform);
 
         uint32_t chooseMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties) const;
+
+        void createBuffer(
+            VkDeviceSize size,
+            VkBufferUsageFlags usage,
+            VkMemoryPropertyFlags mem_props,
+            VkBuffer &buffer,
+            VkDeviceMemory &memory);
+
+        void copyBuffer(VkBuffer dst, VkBuffer src, VkDeviceSize size);
 
     private:
         void initInstance(bool debug);
