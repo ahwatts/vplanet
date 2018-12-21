@@ -6,14 +6,12 @@
 #include <vector>
 #include "../vulkan.h"
 
-#include "../glm_defines.h"
-#include <glm/mat4x4.hpp>
-
 #include "../Terrain.h"
 #include "Commands.h"
 #include "DepthBuffer.h"
 #include "Swapchain.h"
 #include "TerrainRenderer.h"
+#include "Uniforms.h"
 
 namespace gfx {
     class System {
@@ -38,9 +36,7 @@ namespace gfx {
         const TerrainRenderer& terrainRenderer() const;
 
         void setTerrainGeometry(const std::vector<TerrainVertex> &vertices, const std::vector<uint32_t> &elements);
-        void setModelTransform(const glm::mat4x4 &xform);
-        void setViewTransform(const glm::mat4x4 &xform);
-        void setProjectionTransform(const glm::mat4x4 &xform);
+        void setTransforms(const Transforms &xforms, uint32_t index);
 
         uint32_t chooseMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties) const;
 
@@ -97,6 +93,7 @@ namespace gfx {
         Swapchain m_swapchain;
         DepthBuffer m_depth_buffer;
         TerrainRenderer m_terrain_renderer;
+        XformUniforms m_xform_uniforms;
     };
 };
 

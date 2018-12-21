@@ -51,6 +51,7 @@ add_executable(vplanet
     src/gfx/Swapchain.cpp
     src/gfx/System.cpp
     src/gfx/TerrainRenderer.cpp
+    src/gfx/Uniforms.cpp
     src/gfx/VulkanExt.cpp
     src/Application.cpp
     src/Curve.cpp

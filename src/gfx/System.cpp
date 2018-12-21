@@ -36,7 +36,8 @@ gfx::System::System(GLFWwindow *window)
       m_commands{this},
       m_swapchain{this},
       m_depth_buffer{this},
-      m_terrain_renderer{this}
+      m_terrain_renderer{this},
+      m_xform_uniforms{this}
 {}
 
 gfx::System::~System() {
@@ -56,9 +57,11 @@ void gfx::System::init(bool debug) {
     m_swapchain.init();
     m_depth_buffer.init();
     m_terrain_renderer.init(m_swapchain.imageViews(), m_depth_buffer);
+    m_xform_uniforms.init();
 }
 
 void gfx::System::dispose() {
+    m_xform_uniforms.dispose();
     m_terrain_renderer.dispose();
     m_depth_buffer.dispose();
     m_swapchain.dispose();
@@ -111,6 +114,10 @@ const gfx::DepthBuffer& gfx::System::depthBuffer() const {
 
 void gfx::System::setTerrainGeometry(const std::vector<TerrainVertex> &verts, const std::vector<uint32_t> &elems) {
     m_terrain_renderer.setGeometry(verts, elems);
+}
+
+void gfx::System::setTransforms(const gfx::Transforms &xforms, uint32_t index) {
+    m_xform_uniforms.setTransforms(xforms, index);
 }
 
 uint32_t gfx::System::chooseMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties) const {

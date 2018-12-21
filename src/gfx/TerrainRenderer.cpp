@@ -49,6 +49,7 @@ void gfx::TerrainRenderer::init(const std::vector<VkImageView> &color_buffers, c
 }
 
 void gfx::TerrainRenderer::dispose() {
+    cleanupGeometryBuffers();
     cleanupFramebuffers();
     cleanupPipeline();
     cleanupShaderModules();
