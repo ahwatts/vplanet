@@ -34,9 +34,14 @@ namespace gfx {
         const DepthBuffer& depthBuffer() const;
         const Swapchain& swapchain() const;
         const TerrainRenderer& terrainRenderer() const;
+        const XformUniforms& transformUniforms() const;
 
         void setTerrainGeometry(const std::vector<TerrainVertex> &vertices, const std::vector<uint32_t> &elements);
         void setTransforms(const Transforms &xforms, uint32_t index);
+        void recordCommandBuffers();
+        uint32_t startFrame();
+        void drawFrame(uint32_t image_index);
+        void presentFrame(uint32_t image_index);
 
         uint32_t chooseMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties) const;
 
@@ -61,6 +66,9 @@ namespace gfx {
 
         void initDevice(bool debug);
         void cleanupDevice();
+
+        void initSemaphores();
+        void cleanupSemaphores();
 
         static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
             VkDebugReportFlagsEXT flags,
@@ -88,6 +96,8 @@ namespace gfx {
         VkPhysicalDevice m_physical_device;
         VkDevice m_device;
         uint32_t m_graphics_queue_family, m_present_queue_family;
+        VkSemaphore m_image_available_semaphore;
+        VkSemaphore m_render_finished_semaphore;
 
         Commands m_commands;
         Swapchain m_swapchain;

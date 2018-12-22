@@ -9,7 +9,8 @@ gfx::Commands::Commands(System *system)
     : m_system{system},
       m_graphics_queue{VK_NULL_HANDLE},
       m_present_queue{VK_NULL_HANDLE},
-      m_pool{VK_NULL_HANDLE}
+      m_pool{VK_NULL_HANDLE},
+      m_draw_commands{}
 {}
 
 gfx::Commands::~Commands() {
@@ -19,11 +20,25 @@ gfx::Commands::~Commands() {
 void gfx::Commands::init() {
     initQueues();
     initPool();
+    initCommandBuffers();
 }
 
 void gfx::Commands::dispose() {
+    cleanupCommandBuffers();
     cleanupPool();
     cleanupQueues();
+}
+
+VkQueue gfx::Commands::graphicsQueue() const {
+    return m_graphics_queue;
+}
+
+VkQueue gfx::Commands::presentQueue() const {
+    return m_present_queue;
+}
+
+const std::vector<VkCommandBuffer>& gfx::Commands::drawCommands() const {
+    return m_draw_commands;
 }
 
 VkCommandBuffer gfx::Commands::beginOneShot() const {
@@ -137,5 +152,36 @@ void gfx::Commands::cleanupPool() {
     if (device != VK_NULL_HANDLE && m_pool != VK_NULL_HANDLE) {
         vkDestroyCommandPool(device, m_pool, nullptr);
         m_pool = VK_NULL_HANDLE;
+    }
+}
+
+void gfx::Commands::initCommandBuffers() {
+    if (m_draw_commands.size() > 0) {
+        return;
+    }
+
+    VkDevice device = m_system->device();
+    uint32_t num_buffers = m_system->swapchain().images().size();
+    m_draw_commands.resize(num_buffers, VK_NULL_HANDLE);
+
+    VkCommandBufferAllocateInfo cb_ai;
+    cb_ai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    cb_ai.pNext = nullptr;
+    cb_ai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    cb_ai.commandPool = m_pool;
+    cb_ai.commandBufferCount = num_buffers;
+
+    VkResult rslt = vkAllocateCommandBuffers(device, &cb_ai, m_draw_commands.data());
+    if (rslt != VK_SUCCESS) {
+        std::stringstream msg;
+        msg << "Unable to allocate command buffers. Error code: " << rslt;
+        throw std::runtime_error(msg.str());
+    }
+}
+
+void gfx::Commands::cleanupCommandBuffers() {
+    VkDevice device = m_system->device();
+    if (device != VK_NULL_HANDLE && m_pool != VK_NULL_HANDLE && m_draw_commands.size() > 0) {
+        vkFreeCommandBuffers(device, m_pool, m_draw_commands.size(), m_draw_commands.data());
     }
 }

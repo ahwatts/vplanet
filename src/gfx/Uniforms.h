@@ -27,13 +27,29 @@ namespace gfx {
         void init();
         void dispose();
 
+        VkDescriptorSetLayout descriptorSetLayout() const;
+        const std::vector<VkDescriptorSet>& descriptorSets() const;
+
         void setTransforms(const Transforms &xforms, uint32_t buffer_index);
 
     private:
+        void initDescriptorSetLayout();
+        void cleanupDescriptorSetLayout();
+
+        void initDescriptorPool();
+        void cleanupDescriptorPool();
+
         void initUniformBuffers();
         void cleanupUniformBuffers();
 
+        void initDescriptorSets();
+        void cleanupDescriptorSets();
+
         System *m_system;
+
+        VkDescriptorSetLayout m_descriptor_set_layout;
+        VkDescriptorPool m_descriptor_pool;
+        std::vector<VkDescriptorSet> m_descriptor_sets;
 
         std::vector<VkBuffer> m_buffers;
         std::vector<VkDeviceMemory> m_memories;

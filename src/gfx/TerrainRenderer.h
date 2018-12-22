@@ -21,7 +21,7 @@ namespace gfx {
         VkRenderPass renderPass() const;
 
         void setGeometry(const std::vector<TerrainVertex> &verts, const std::vector<uint32_t> &elems);
-        void recordCommands(VkCommandBuffer &cmd_buf, VkDescriptorSet &xforms, uint32_t framebuffer_index);
+        void recordCommands(const VkCommandBuffer &cmd_buf, const VkDescriptorSet &xforms, uint32_t framebuffer_index);
 
     private:
         void initShaderModules();
@@ -29,9 +29,6 @@ namespace gfx {
 
         void initRenderPass();
         void cleanupRenderPass();
-
-        void initDescriptorSetLayout();
-        void cleanupDescriptorSetLayout();
 
         void initPipelineLayout();
         void cleanupPipelineLayout();
@@ -51,7 +48,6 @@ namespace gfx {
         System *m_system;
         VkShaderModule m_vertex_shader, m_fragment_shader;
         VkRenderPass m_render_pass;
-        VkDescriptorSetLayout m_descriptor_set_layout;
         VkPipelineLayout m_pipeline_layout;
         VkPipeline m_pipeline;
         std::vector<VkFramebuffer> m_framebuffers;

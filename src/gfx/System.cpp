@@ -33,6 +33,8 @@ gfx::System::System(GLFWwindow *window)
       m_device{VK_NULL_HANDLE},
       m_graphics_queue_family{UINT32_MAX},
       m_present_queue_family{UINT32_MAX},
+      m_image_available_semaphore{VK_NULL_HANDLE},
+      m_render_finished_semaphore{VK_NULL_HANDLE},
       m_commands{this},
       m_swapchain{this},
       m_depth_buffer{this},
@@ -53,19 +55,21 @@ void gfx::System::init(bool debug) {
 
     initSurface();
     initDevice(debug);
-    m_commands.init();
+    initSemaphores();
     m_swapchain.init();
+    m_commands.init();
     m_depth_buffer.init();
-    m_terrain_renderer.init(m_swapchain.imageViews(), m_depth_buffer);
     m_xform_uniforms.init();
+    m_terrain_renderer.init(m_swapchain.imageViews(), m_depth_buffer);
 }
 
 void gfx::System::dispose() {
-    m_xform_uniforms.dispose();
     m_terrain_renderer.dispose();
+    m_xform_uniforms.dispose();
     m_depth_buffer.dispose();
-    m_swapchain.dispose();
     m_commands.dispose();
+    m_swapchain.dispose();
+    cleanupSemaphores();
     cleanupDevice();
     cleanupSurface();
     cleanupDebugCallback();
@@ -112,12 +116,115 @@ const gfx::DepthBuffer& gfx::System::depthBuffer() const {
     return m_depth_buffer;
 }
 
+const gfx::XformUniforms& gfx::System::transformUniforms() const {
+    return m_xform_uniforms;
+}
+
 void gfx::System::setTerrainGeometry(const std::vector<TerrainVertex> &verts, const std::vector<uint32_t> &elems) {
     m_terrain_renderer.setGeometry(verts, elems);
 }
 
 void gfx::System::setTransforms(const gfx::Transforms &xforms, uint32_t index) {
     m_xform_uniforms.setTransforms(xforms, index);
+}
+
+void gfx::System::recordCommandBuffers() {
+    const std::vector<VkCommandBuffer> &draw_commands = m_commands.drawCommands();
+    const std::vector<VkDescriptorSet> &xform_uniforms = m_xform_uniforms.descriptorSets();
+
+    for (uint32_t i = 0; i < draw_commands.size(); ++i) {
+        VkCommandBufferBeginInfo cb_bi;
+        cb_bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        cb_bi.pNext = nullptr;
+        cb_bi.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+        cb_bi.pInheritanceInfo = nullptr;
+
+        VkResult rslt = vkBeginCommandBuffer(draw_commands[i], &cb_bi);
+        if (rslt != VK_SUCCESS) {
+            std::stringstream msg;
+            msg << "Unable to start recording command buffer. Error code: " << rslt;
+            throw std::runtime_error(msg.str());
+        }
+
+        m_terrain_renderer.recordCommands(draw_commands[i], xform_uniforms[i], i);
+
+        rslt = vkEndCommandBuffer(draw_commands[i]);
+        if (rslt != VK_SUCCESS) {
+            std::stringstream msg;
+            msg << "Unable to finish recording command buffer. Error code: " << rslt;
+            throw std::runtime_error(msg.str());
+        }
+    }
+}
+
+uint32_t gfx::System::startFrame() {
+    uint32_t image_index = UINT32_MAX;
+    VkResult rslt = vkAcquireNextImageKHR(
+        m_device,
+        m_swapchain.swapchain(),
+        UINT64_MAX,
+        m_image_available_semaphore,
+        VK_NULL_HANDLE,
+        &image_index);
+
+    if (rslt != VK_SUCCESS) {
+        std::stringstream msg;
+        msg << "Unable to get next swapchain image. Error code: " << rslt;
+        throw std::runtime_error(msg.str());
+    }
+
+    return image_index;
+}
+
+void gfx::System::drawFrame(uint32_t image_index) {
+    const std::vector<VkCommandBuffer> &draw_commands = m_commands.drawCommands();
+
+    std::array<VkPipelineStageFlags, 1> wait_stages{
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+    };
+
+    std::array<VkSemaphore, 1> wait_semaphores{
+        m_image_available_semaphore,
+    };
+
+    VkSubmitInfo si;
+    si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    si.pNext = nullptr;
+    si.waitSemaphoreCount = wait_semaphores.size();
+    si.pWaitSemaphores = wait_semaphores.data();
+    si.pWaitDstStageMask = wait_stages.data();
+    si.commandBufferCount = 1;
+    si.pCommandBuffers = &draw_commands[image_index];
+    si.signalSemaphoreCount = 1;
+    si.pSignalSemaphores = &m_render_finished_semaphore;
+
+    VkResult rslt = vkQueueSubmit(m_commands.graphicsQueue(), 1, &si, VK_NULL_HANDLE);
+    if (rslt != VK_SUCCESS) {
+        std::stringstream msg;
+        msg << "Unable to submit command buffer to graphics queue. Error code: " << rslt;
+        throw std::runtime_error(msg.str());
+    }
+}
+
+void gfx::System::presentFrame(uint32_t image_index) {
+    VkSwapchainKHR swapchain = m_swapchain.swapchain();
+
+    VkPresentInfoKHR pi;
+    pi.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    pi.pNext = nullptr;
+    pi.waitSemaphoreCount = 1;
+    pi.pWaitSemaphores = &m_render_finished_semaphore;
+    pi.swapchainCount = 1;
+    pi.pSwapchains = &swapchain;
+    pi.pImageIndices = &image_index;
+    pi.pResults = nullptr;
+
+    VkResult rslt = vkQueuePresentKHR(m_commands.presentQueue(), &pi);
+    if (rslt != VK_SUCCESS) {
+        std::stringstream msg;
+        msg << "Unable to submit to present queue. Error code: " << rslt;
+        throw std::runtime_error(msg.str());
+    }
 }
 
 uint32_t gfx::System::chooseMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties) const {
@@ -453,6 +560,38 @@ void gfx::System::cleanupDevice() {
         m_physical_device = VK_NULL_HANDLE;
         m_graphics_queue_family = UINT32_MAX;
         m_present_queue_family = UINT32_MAX;
+    }
+}
+
+void gfx::System::initSemaphores() {
+    if (m_image_available_semaphore == VK_NULL_HANDLE) {
+        VkSemaphoreCreateInfo sem_ci;
+        sem_ci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+        sem_ci.pNext = nullptr;
+        sem_ci.flags = 0;
+        vkCreateSemaphore(m_device, &sem_ci, nullptr, &m_image_available_semaphore);
+    }
+
+    if (m_render_finished_semaphore == VK_NULL_HANDLE) {
+        VkSemaphoreCreateInfo sem_ci;
+        sem_ci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+        sem_ci.pNext = nullptr;
+        sem_ci.flags = 0;
+        vkCreateSemaphore(m_device, &sem_ci, nullptr, &m_image_available_semaphore);
+    }
+}
+
+void gfx::System::cleanupSemaphores() {
+    if (m_device != VK_NULL_HANDLE) {
+        if (m_image_available_semaphore != VK_NULL_HANDLE) {
+            vkDestroySemaphore(m_device, m_image_available_semaphore, nullptr);
+            m_image_available_semaphore = VK_NULL_HANDLE;
+        }
+
+        if (m_render_finished_semaphore != VK_NULL_HANDLE) {
+            vkDestroySemaphore(m_device, m_render_finished_semaphore, nullptr);
+            m_render_finished_semaphore = VK_NULL_HANDLE;
+        }
     }
 }
 

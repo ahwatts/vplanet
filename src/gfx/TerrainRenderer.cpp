@@ -18,7 +18,6 @@ gfx::TerrainRenderer::TerrainRenderer(System *system)
       m_vertex_shader{VK_NULL_HANDLE},
       m_fragment_shader{VK_NULL_HANDLE},
       m_render_pass{VK_NULL_HANDLE},
-      m_descriptor_set_layout{VK_NULL_HANDLE},
       m_pipeline_layout{VK_NULL_HANDLE},
       m_pipeline{VK_NULL_HANDLE},
       m_framebuffers{},
@@ -42,7 +41,6 @@ void gfx::TerrainRenderer::init(const std::vector<VkImageView> &color_buffers, c
 
     initShaderModules();
     initRenderPass();
-    initDescriptorSetLayout();
     initPipelineLayout();
     initPipeline();
     initFramebuffers(color_buffers, depth_buffer);
@@ -54,7 +52,6 @@ void gfx::TerrainRenderer::dispose() {
     cleanupPipeline();
     cleanupShaderModules();
     cleanupRenderPass();
-    cleanupDescriptorSetLayout();
     cleanupPipelineLayout();
 }
 
@@ -69,9 +66,9 @@ void gfx::TerrainRenderer::setGeometry(const std::vector<TerrainVertex> &verts, 
     m_num_indices = indices.size();
 }
 
-void gfx::TerrainRenderer::recordCommands(VkCommandBuffer &cmd_buf, VkDescriptorSet &xforms, uint32_t framebuffer_index)
+void gfx::TerrainRenderer::recordCommands(const VkCommandBuffer &cmd_buf, const VkDescriptorSet &xforms, uint32_t framebuffer_index)
 {
-    VkClearValue clear_values[2];
+    std::array<VkClearValue, 2> clear_values{};
     clear_values[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
     clear_values[1].depthStencil = { 1.0f, 0 };
 
@@ -82,8 +79,8 @@ void gfx::TerrainRenderer::recordCommands(VkCommandBuffer &cmd_buf, VkDescriptor
     rp_bi.framebuffer = m_framebuffers[framebuffer_index];
     rp_bi.renderArea.offset = { 0, 0 };
     rp_bi.renderArea.extent = m_system->swapchain().extent();
-    rp_bi.clearValueCount = 2;
-    rp_bi.pClearValues = clear_values;
+    rp_bi.clearValueCount = clear_values.size();
+    rp_bi.pClearValues = clear_values.data();
 
     VkBuffer vertex_buffers[1] = { m_vertex_buffer };
     VkDeviceSize vertex_buffer_offsets[1] = { 0 };
@@ -232,56 +229,20 @@ void gfx::TerrainRenderer::cleanupRenderPass() {
     }
 }
 
-void gfx::TerrainRenderer::initDescriptorSetLayout() {
-    if (m_descriptor_set_layout != VK_NULL_HANDLE) {
-        return;
-    }
-
-    VkDevice device = m_system->device();
-
-    VkDescriptorSetLayoutBinding binding;
-    binding.binding = 0;
-    binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    binding.descriptorCount = 1;
-    binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    binding.pImmutableSamplers = nullptr;
-
-    VkDescriptorSetLayoutCreateInfo dsl_ci;
-    dsl_ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    dsl_ci.pNext = nullptr;
-    dsl_ci.flags = 0;
-    dsl_ci.bindingCount = 1;
-    dsl_ci.pBindings = &binding;
-
-    VkResult rslt = vkCreateDescriptorSetLayout(device, &dsl_ci, nullptr, &m_descriptor_set_layout);
-    if (rslt != VK_SUCCESS) {
-        std::stringstream msg;
-        msg << "Unable to create descriptor set layout. Error code: " << rslt;
-        throw std::runtime_error(msg.str());
-    }
-}
-
-void gfx::TerrainRenderer::cleanupDescriptorSetLayout() {
-    VkDevice device = m_system->device();
-    if (device != VK_NULL_HANDLE && m_descriptor_set_layout != VK_NULL_HANDLE) {
-        vkDestroyDescriptorSetLayout(device, m_descriptor_set_layout, nullptr);
-        m_descriptor_set_layout = VK_NULL_HANDLE;
-    }
-}
-
 void gfx::TerrainRenderer::initPipelineLayout() {
     if (m_pipeline_layout != VK_NULL_HANDLE) {
         return;
     }
 
     VkDevice device = m_system->device();
+    VkDescriptorSetLayout xform_layout = m_system->transformUniforms().descriptorSetLayout();
 
     VkPipelineLayoutCreateInfo pl_ci;
     pl_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pl_ci.pNext = nullptr;
     pl_ci.flags = 0;
     pl_ci.setLayoutCount = 1;
-    pl_ci.pSetLayouts = &m_descriptor_set_layout;
+    pl_ci.pSetLayouts = &xform_layout;
     pl_ci.pushConstantRangeCount = 0;
     pl_ci.pPushConstantRanges = nullptr;
 

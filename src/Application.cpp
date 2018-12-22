@@ -57,6 +57,13 @@ void Application::init() {
         static_cast<float>(m_window_width),
         static_cast<float>(m_window_height),
         0.1f, 100.0f);
+
+    uint32_t num_images = m_gfx.swapchain().images().size();
+    for (uint32_t i = 0; i < num_images; ++i) {
+        m_gfx.setTransforms(m_xforms, i);
+    }
+
+    m_gfx.recordCommandBuffers();
 }
 
 void Application::dispose() {
@@ -69,7 +76,11 @@ void Application::run() {
         auto current_time = std::chrono::high_resolution_clock::now();
         float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
         m_xforms.model = glm::rotate(glm::mat4x4{1.0}, time * glm::radians(90.0f), glm::vec3{0.0, 0.0, 1.0});
-        m_gfx.setTransforms(m_xforms, 0);
+
+        uint32_t image_index = m_gfx.startFrame();
+        m_gfx.setTransforms(m_xforms, image_index);
+        m_gfx.drawFrame(image_index);
+        m_gfx.presentFrame(image_index);
         glfwPollEvents();
     }
 }
