@@ -225,11 +225,11 @@ uint32_t chooseImageCount(VkSurfaceCapabilitiesKHR &surf_caps) {
 }
 
 VkPresentModeKHR choosePresentMode(const std::vector<VkPresentModeKHR> &modes) {
-    for (auto &mode : modes) {
-        if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
-            return mode;
-        }
-    }
+    // for (auto &mode : modes) {
+    //     if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
+    //         return mode;
+    //     }
+    // }
 
     return VK_PRESENT_MODE_FIFO_KHR;
 }
