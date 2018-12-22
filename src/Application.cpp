@@ -75,7 +75,7 @@ void Application::run() {
     while (!glfwWindowShouldClose(m_window)) {
         auto current_time = std::chrono::high_resolution_clock::now();
         float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
-        m_xforms.model = glm::rotate(glm::mat4x4{1.0}, time * glm::radians(90.0f), glm::vec3{0.0, 0.0, 1.0});
+        m_xforms.model = glm::rotate(glm::mat4x4{1.0}, time * glm::radians(15.0f), glm::vec3{0.0, 1.0, 0.0});
 
         uint32_t image_index = m_gfx.startFrame();
         m_gfx.setTransforms(m_xforms, image_index);
