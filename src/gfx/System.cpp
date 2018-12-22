@@ -187,6 +187,10 @@ void gfx::System::drawFrame(uint32_t image_index) {
         m_image_available_semaphore,
     };
 
+    std::array<VkSemaphore, 1> signal_semaphores{
+        m_render_finished_semaphore,
+    };
+
     VkSubmitInfo si;
     si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     si.pNext = nullptr;
@@ -195,8 +199,8 @@ void gfx::System::drawFrame(uint32_t image_index) {
     si.pWaitDstStageMask = wait_stages.data();
     si.commandBufferCount = 1;
     si.pCommandBuffers = &draw_commands[image_index];
-    si.signalSemaphoreCount = 1;
-    si.pSignalSemaphores = &m_render_finished_semaphore;
+    si.signalSemaphoreCount = signal_semaphores.size();
+    si.pSignalSemaphores = signal_semaphores.data();
 
     VkResult rslt = vkQueueSubmit(m_commands.graphicsQueue(), 1, &si, VK_NULL_HANDLE);
     if (rslt != VK_SUCCESS) {
@@ -225,6 +229,11 @@ void gfx::System::presentFrame(uint32_t image_index) {
         msg << "Unable to submit to present queue. Error code: " << rslt;
         throw std::runtime_error(msg.str());
     }
+}
+
+void gfx::System::waitIdle() {
+    m_commands.waitGraphicsIdle();
+    m_commands.waitPresentIdle();
 }
 
 uint32_t gfx::System::chooseMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties) const {
@@ -577,7 +586,7 @@ void gfx::System::initSemaphores() {
         sem_ci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
         sem_ci.pNext = nullptr;
         sem_ci.flags = 0;
-        vkCreateSemaphore(m_device, &sem_ci, nullptr, &m_image_available_semaphore);
+        vkCreateSemaphore(m_device, &sem_ci, nullptr, &m_render_finished_semaphore);
     }
 }
 

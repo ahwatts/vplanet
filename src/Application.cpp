@@ -83,4 +83,5 @@ void Application::run() {
         m_gfx.presentFrame(image_index);
         glfwPollEvents();
     }
+    m_gfx.waitIdle();
 }

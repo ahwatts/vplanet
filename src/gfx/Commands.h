@@ -19,7 +19,9 @@ namespace gfx {
         void dispose();
 
         VkQueue graphicsQueue() const;
+        void waitGraphicsIdle() const;
         VkQueue presentQueue() const;
+        void waitPresentIdle() const;
         const std::vector<VkCommandBuffer>& drawCommands() const;
 
         VkCommandBuffer beginOneShot() const;

@@ -33,8 +33,26 @@ VkQueue gfx::Commands::graphicsQueue() const {
     return m_graphics_queue;
 }
 
+void gfx::Commands::waitGraphicsIdle() const {
+    VkResult rslt = vkQueueWaitIdle(m_graphics_queue);
+    if (rslt != VK_SUCCESS) {
+        std::stringstream msg;
+        msg << "Error waiting for graphics queue to be idle. Error code: " << rslt;
+        throw std::runtime_error(msg.str());
+    }
+}
+
 VkQueue gfx::Commands::presentQueue() const {
     return m_present_queue;
+}
+
+void gfx::Commands::waitPresentIdle() const {
+    VkResult rslt = vkQueueWaitIdle(m_present_queue);
+    if (rslt != VK_SUCCESS) {
+        std::stringstream msg;
+        msg << "Error waiting for present queue to be idle. Error code: " << rslt;
+        throw std::runtime_error(msg.str());
+    }
 }
 
 const std::vector<VkCommandBuffer>& gfx::Commands::drawCommands() const {

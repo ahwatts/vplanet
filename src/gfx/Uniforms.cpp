@@ -218,9 +218,9 @@ void gfx::XformUniforms::initDescriptorSets() {
 }
 
 void gfx::XformUniforms::cleanupDescriptorSets() {
-    VkDevice device = m_system->device();
-    if (device != VK_NULL_HANDLE && m_descriptor_pool != VK_NULL_HANDLE && m_descriptor_sets.size() > 0) {
-        vkFreeDescriptorSets(device, m_descriptor_pool, m_descriptor_sets.size(), m_descriptor_sets.data());
-    }
+    // VkDevice device = m_system->device();
+    // if (device != VK_NULL_HANDLE && m_descriptor_pool != VK_NULL_HANDLE && m_descriptor_sets.size() > 0) {
+    //     vkFreeDescriptorSets(device, m_descriptor_pool, m_descriptor_sets.size(), m_descriptor_sets.data());
+    // }
     m_descriptor_sets.clear();
 }

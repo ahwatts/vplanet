@@ -42,6 +42,7 @@ namespace gfx {
         uint32_t startFrame();
         void drawFrame(uint32_t image_index);
         void presentFrame(uint32_t image_index);
+        void waitIdle();
 
         uint32_t chooseMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties) const;
 
