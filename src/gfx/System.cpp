@@ -7,10 +7,13 @@
 
 #include "../vulkan.h"
 
+#include "../Terrain.h"
+#include "Commands.h"
 #include "DepthBuffer.h"
+#include "Renderer.h"
 #include "Swapchain.h"
 #include "System.h"
-#include "TerrainRenderer.h"
+#include "Uniforms.h"
 
 struct ChosenDeviceInfo {
     VkPhysicalDevice device;
@@ -38,7 +41,7 @@ gfx::System::System(GLFWwindow *window)
       m_commands{this},
       m_swapchain{this},
       m_depth_buffer{this},
-      m_terrain_renderer{this},
+      m_renderer{this},
       m_xform_uniforms{this}
 {}
 
@@ -60,11 +63,11 @@ void gfx::System::init(bool debug) {
     m_commands.init();
     m_depth_buffer.init();
     m_xform_uniforms.init();
-    m_terrain_renderer.init(m_swapchain.imageViews(), m_depth_buffer);
+    m_renderer.init();
 }
 
 void gfx::System::dispose() {
-    m_terrain_renderer.dispose();
+    m_renderer.dispose();
     m_xform_uniforms.dispose();
     m_depth_buffer.dispose();
     m_commands.dispose();
@@ -121,7 +124,7 @@ const gfx::XformUniforms& gfx::System::transformUniforms() const {
 }
 
 void gfx::System::setTerrainGeometry(const std::vector<TerrainVertex> &verts, const std::vector<uint32_t> &elems) {
-    m_terrain_renderer.setGeometry(verts, elems);
+    m_renderer.terrainPipeline().setGeometry(verts, elems);
 }
 
 void gfx::System::setTransforms(const gfx::Transforms &xforms, uint32_t index) {
@@ -146,7 +149,7 @@ void gfx::System::recordCommandBuffers() {
             throw std::runtime_error(msg.str());
         }
 
-        m_terrain_renderer.recordCommands(draw_commands[i], xform_uniforms[i], i);
+        m_renderer.recordCommands(draw_commands[i], xform_uniforms[i], i);
 
         rslt = vkEndCommandBuffer(draw_commands[i]);
         if (rslt != VK_SUCCESS) {

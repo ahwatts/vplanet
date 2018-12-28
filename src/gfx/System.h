@@ -4,13 +4,14 @@
 #define _VPLANET_GFX_SYSTEM_H_
 
 #include <vector>
+
 #include "../vulkan.h"
 
 #include "../Terrain.h"
 #include "Commands.h"
 #include "DepthBuffer.h"
+#include "Renderer.h"
 #include "Swapchain.h"
-#include "TerrainRenderer.h"
 #include "Uniforms.h"
 
 namespace gfx {
@@ -33,7 +34,7 @@ namespace gfx {
         const Commands& commands() const;
         const DepthBuffer& depthBuffer() const;
         const Swapchain& swapchain() const;
-        const TerrainRenderer& terrainRenderer() const;
+        const Renderer& renderer() const;
         const XformUniforms& transformUniforms() const;
 
         void setTerrainGeometry(const std::vector<TerrainVertex> &vertices, const std::vector<uint32_t> &elements);
@@ -103,7 +104,7 @@ namespace gfx {
         Commands m_commands;
         Swapchain m_swapchain;
         DepthBuffer m_depth_buffer;
-        TerrainRenderer m_terrain_renderer;
+        Renderer m_renderer;
         XformUniforms m_xform_uniforms;
     };
 };

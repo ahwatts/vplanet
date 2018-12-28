@@ -48,9 +48,10 @@ embed_resources(EMBEDDED_SHADERS ${SPIRV_SHADERS})
 add_executable(vplanet
     src/gfx/Commands.cpp
     src/gfx/DepthBuffer.cpp
+    src/gfx/Renderer.cpp
     src/gfx/Swapchain.cpp
     src/gfx/System.cpp
-    src/gfx/TerrainRenderer.cpp
+    src/gfx/TerrainPipeline.cpp
     src/gfx/Uniforms.cpp
     src/gfx/VulkanExt.cpp
     src/Application.cpp
