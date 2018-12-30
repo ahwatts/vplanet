@@ -1,28 +1,25 @@
 // -*- mode: c++; c-basic-offset: 4; encoding: utf-8; -*-
 
-#ifndef _VPLANET_GFX_TERRAIN_PIPELINE_H_
-#define _VPLANET_GFX_TERRAIN_PIPELINE_H_
-
-#include <vector>
+#ifndef _VPLANET_GFX_OCEAN_PIPELINE_H_
+#define _VPLANET_GFX_OCEAN_PIPELINE_H_
 
 #include "../vulkan.h"
 
-#include "../Terrain.h"
+#include "../Ocean.h"
 #include "Pipeline.h"
-#include "Resource.h"
 
 namespace gfx {
     class Renderer;
 
-    class TerrainPipeline : public Pipeline {
+    class OceanPipeline : public Pipeline {
     public:
-        TerrainPipeline(Renderer *renderer);
-        virtual ~TerrainPipeline();
+        OceanPipeline(Renderer *renderer);
+        ~OceanPipeline();
 
         void init();
         void dispose();
 
-        void setGeometry(const std::vector<TerrainVertex> &verts, const std::vector<uint32_t> &elems);
+        void setGeometry(const std::vector<OceanVertex> &verts, const std::vector<uint32_t> &elems);
         void recordCommands(VkCommandBuffer cmd_buf, VkDescriptorSet xforms);
 
     private:

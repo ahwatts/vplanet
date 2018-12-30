@@ -7,6 +7,7 @@
 
 #include "../vulkan.h"
 
+#include "OceanPipeline.h"
 #include "TerrainPipeline.h"
 
 namespace gfx {
@@ -23,6 +24,7 @@ namespace gfx {
         System* system();
         VkRenderPass renderPass() const;
         TerrainPipeline& terrainPipeline();
+        OceanPipeline& oceanPipeline();
 
         void recordCommands(VkCommandBuffer cmd_buf, VkDescriptorSet xforms, uint32_t fb_index);
 
@@ -37,6 +39,7 @@ namespace gfx {
         VkRenderPass m_render_pass;
         std::vector<VkFramebuffer> m_framebuffers;
 
+        OceanPipeline m_ocean_pipeline;
         TerrainPipeline m_terrain_pipeline;
     };
 }

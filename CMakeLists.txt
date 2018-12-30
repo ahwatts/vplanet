@@ -40,6 +40,8 @@ find_package(glm REQUIRED)
 add_subdirectory(vendor/embed-resource)
 
 compile_spirv(SPIRV_SHADERS
+    src/gfx/shaders/ocean.vert
+    src/gfx/shaders/ocean.frag
     src/gfx/shaders/terrain.vert
     src/gfx/shaders/terrain.frag)
 
@@ -48,6 +50,8 @@ embed_resources(EMBEDDED_SHADERS ${SPIRV_SHADERS})
 add_executable(vplanet
     src/gfx/Commands.cpp
     src/gfx/DepthBuffer.cpp
+    src/gfx/OceanPipeline.cpp
+    src/gfx/Pipeline.cpp
     src/gfx/Renderer.cpp
     src/gfx/Swapchain.cpp
     src/gfx/System.cpp
@@ -58,6 +62,7 @@ add_executable(vplanet
     src/Curve.cpp
     src/Models.cpp
     src/Noise.cpp
+    src/Ocean.cpp
     src/Terrain.cpp
     src/vplanet.cpp
     ${EMBEDDED_SHADERS})

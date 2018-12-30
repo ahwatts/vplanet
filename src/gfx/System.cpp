@@ -1,5 +1,6 @@
 // -*- mode: c++; c-basic-offset: 4; encoding: utf-8; -*-
 
+#include <cstring>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -125,6 +126,10 @@ const gfx::XformUniforms& gfx::System::transformUniforms() const {
 
 void gfx::System::setTerrainGeometry(const std::vector<TerrainVertex> &verts, const std::vector<uint32_t> &elems) {
     m_renderer.terrainPipeline().setGeometry(verts, elems);
+}
+
+void gfx::System::setOceanGeometry(const std::vector<OceanVertex> &verts, const std::vector<uint32_t> &indices) {
+    m_renderer.oceanPipeline().setGeometry(verts, indices);
 }
 
 void gfx::System::setTransforms(const gfx::Transforms &xforms, uint32_t index) {
@@ -309,6 +314,45 @@ void gfx::System::createBuffer(
     }
 }
 
+void gfx::System::createBufferWithData(
+    const void *data,
+    size_t data_size,
+    VkBufferUsageFlags usage,
+    VkBuffer &dst_buffer,
+    VkDeviceMemory &dst_memory)
+{
+    VkDeviceSize buffer_size = data_size;
+    VkBuffer staging_buffer{VK_NULL_HANDLE};
+    VkDeviceMemory staging_buffer_memory{VK_NULL_HANDLE};
+    createBuffer(
+        buffer_size,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        staging_buffer, staging_buffer_memory);
+
+    void *mapped_data = nullptr;
+    VkResult rslt = vkMapMemory(m_device, staging_buffer_memory, 0, buffer_size, 0, &mapped_data);
+    if (rslt != VK_SUCCESS) {
+        std::stringstream msg;
+        msg << "Cannot map staging buffer memory. Error code: " << rslt;
+        throw std::runtime_error(msg.str());
+    }
+
+    std::memcpy(mapped_data, data, data_size);
+    vkUnmapMemory(m_device, staging_buffer_memory);
+
+    createBuffer(
+        buffer_size,
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        dst_buffer, dst_memory);
+
+    copyBuffer(dst_buffer, staging_buffer, buffer_size);
+
+    vkDestroyBuffer(m_device, staging_buffer, nullptr);
+    vkFreeMemory(m_device, staging_buffer_memory, nullptr);
+}
+
 void gfx::System::copyBuffer(VkBuffer dst, VkBuffer src, VkDeviceSize size) {
     VkBufferCopy region;
     region.srcOffset = 0;
@@ -318,6 +362,23 @@ void gfx::System::copyBuffer(VkBuffer dst, VkBuffer src, VkDeviceSize size) {
     VkCommandBuffer cb = m_commands.beginOneShot();
     vkCmdCopyBuffer(cb, src, dst, 1, &region);
     m_commands.endOneShot(cb);
+}
+
+void gfx::System::createShaderModule(const Resource &rsrc, VkShaderModule &shader) {
+    VkShaderModuleCreateInfo sm_ci;
+    sm_ci.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    sm_ci.pNext = nullptr;
+    sm_ci.flags = 0;
+    sm_ci.codeSize = rsrc.size();
+    sm_ci.pCode = reinterpret_cast<const uint32_t*>(rsrc.data());
+
+    VkShaderModule module{VK_NULL_HANDLE};
+    VkResult rslt = vkCreateShaderModule(m_device, &sm_ci, nullptr, &shader);
+    if (rslt != VK_SUCCESS) {
+        std::stringstream msg;
+        msg << "Unable to create shader module. Error code: " << rslt;
+        throw std::runtime_error(msg.str());
+    }
 }
 
 void gfx::System::initInstance(bool debug) {

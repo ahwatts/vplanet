@@ -1,19 +1,21 @@
 // -*- mode: c++; c-basic-offset: 4; encoding: utf-8; -*-
 
-#include <array>
-#include <cstring>
 #include <sstream>
 #include <vector>
 
+#include "../vulkan.h"
+
+#include "../Ocean.h"
+#include "OceanPipeline.h"
 #include "Pipeline.h"
 #include "Renderer.h"
 #include "Resource.h"
 #include "System.h"
 
-const Resource TERRAIN_VERT_BYTECODE = LOAD_RESOURCE(terrain_vert_spv);
-const Resource TERRAIN_FRAG_BYTECODE = LOAD_RESOURCE(terrain_frag_spv);
+const Resource OCEAN_VERT_BYTECODE = LOAD_RESOURCE(ocean_vert_spv);
+const Resource OCEAN_FRAG_BYTECODE = LOAD_RESOURCE(ocean_frag_spv);
 
-gfx::TerrainPipeline::TerrainPipeline(Renderer *renderer)
+gfx::OceanPipeline::OceanPipeline(Renderer *renderer)
     : Pipeline(renderer),
       m_vertex_shader{VK_NULL_HANDLE},
       m_fragment_shader{VK_NULL_HANDLE},
@@ -24,26 +26,36 @@ gfx::TerrainPipeline::TerrainPipeline(Renderer *renderer)
       m_index_buffer_memory{VK_NULL_HANDLE}
 {}
 
-gfx::TerrainPipeline::~TerrainPipeline() {
+gfx::OceanPipeline::~OceanPipeline() {
     dispose();
 }
 
-void gfx::TerrainPipeline::init() {
+void gfx::OceanPipeline::init() {
     initShaderModules();
     Pipeline::init();
 }
 
-void gfx::TerrainPipeline::dispose() {
-    cleanupGeometryBuffers();
+void gfx::OceanPipeline::dispose() {
     Pipeline::dispose();
     cleanupShaderModules();
 }
 
-void gfx::TerrainPipeline::setGeometry(const std::vector<TerrainVertex> &verts, const std::vector<uint32_t> &indices) {
+void gfx::OceanPipeline::recordCommands(VkCommandBuffer cmd_buf, VkDescriptorSet xforms) {
+    VkBuffer vertex_buffers[1] = { m_vertex_buffer };
+    VkDeviceSize vertex_buffer_offsets[1] = { 0 };
+
+    vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+    vkCmdBindVertexBuffers(cmd_buf, 0, 1, vertex_buffers, vertex_buffer_offsets);
+    vkCmdBindIndexBuffer(cmd_buf, m_index_buffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layout, 0, 1, &xforms, 0, nullptr);
+    vkCmdDrawIndexed(cmd_buf, m_num_indices, 1, 0, 0, 0);
+}
+
+void gfx::OceanPipeline::setGeometry(const std::vector<OceanVertex> &verts, const std::vector<uint32_t> &indices) {
     System *gfx = m_renderer->system();
     cleanupGeometryBuffers();
     gfx->createBufferWithData(
-        verts.data(), verts.size() * sizeof(TerrainVertex),
+        verts.data(), verts.size() * sizeof(OceanVertex),
         VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
         m_vertex_buffer, m_vertex_buffer_memory);
     gfx->createBufferWithData(
@@ -53,7 +65,7 @@ void gfx::TerrainPipeline::setGeometry(const std::vector<TerrainVertex> &verts, 
     m_num_indices = indices.size();
 }
 
-void gfx::TerrainPipeline::cleanupGeometryBuffers() {
+void gfx::OceanPipeline::cleanupGeometryBuffers() {
     VkDevice device = m_renderer->system()->device();
     m_num_indices = 0;
     if (device != VK_NULL_HANDLE) {
@@ -79,30 +91,19 @@ void gfx::TerrainPipeline::cleanupGeometryBuffers() {
     }
 }
 
-void gfx::TerrainPipeline::recordCommands(VkCommandBuffer cmd_buf, VkDescriptorSet xforms) {
-    VkBuffer vertex_buffers[1] = { m_vertex_buffer };
-    VkDeviceSize vertex_buffer_offsets[1] = { 0 };
-
-    vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
-    vkCmdBindVertexBuffers(cmd_buf, 0, 1, vertex_buffers, vertex_buffer_offsets);
-    vkCmdBindIndexBuffer(cmd_buf, m_index_buffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layout, 0, 1, &xforms, 0, nullptr);
-    vkCmdDrawIndexed(cmd_buf, m_num_indices, 1, 0, 0, 0);
-}
-
-void gfx::TerrainPipeline::initShaderModules() {
+void gfx::OceanPipeline::initShaderModules() {
     System *gfx = m_renderer->system();
 
     if (m_vertex_shader == VK_NULL_HANDLE) {
-        gfx->createShaderModule(TERRAIN_VERT_BYTECODE, m_vertex_shader);
+        gfx->createShaderModule(OCEAN_VERT_BYTECODE, m_vertex_shader);
     }
 
     if (m_fragment_shader == VK_NULL_HANDLE) {
-        gfx->createShaderModule(TERRAIN_FRAG_BYTECODE, m_fragment_shader);
+        gfx->createShaderModule(OCEAN_FRAG_BYTECODE, m_fragment_shader);
     }
 }
 
-void gfx::TerrainPipeline::cleanupShaderModules() {
+void gfx::OceanPipeline::cleanupShaderModules() {
     VkDevice device = m_renderer->system()->device();
     if (device != VK_NULL_HANDLE) {
         if (m_vertex_shader != VK_NULL_HANDLE) {
@@ -117,7 +118,7 @@ void gfx::TerrainPipeline::cleanupShaderModules() {
     }
 }
 
-void gfx::TerrainPipeline::initPipelineLayout() {
+void gfx::OceanPipeline::initPipelineLayout() {
     if (m_pipeline_layout != VK_NULL_HANDLE) {
         return;
     }
@@ -143,7 +144,7 @@ void gfx::TerrainPipeline::initPipelineLayout() {
     }
 }
 
-void gfx::TerrainPipeline::initPipeline() {
+void gfx::OceanPipeline::initPipeline() {
     if (m_pipeline != VK_NULL_HANDLE) {
         return;
     }
@@ -170,8 +171,8 @@ void gfx::TerrainPipeline::initPipeline() {
     ss_ci[1].pName = "main";
     ss_ci[1].pSpecializationInfo = nullptr;
 
-    VkVertexInputBindingDescription bind_desc = TerrainVertex::bindingDescription();
-    std::array<VkVertexInputAttributeDescription, TerrainVertex::NUM_ATTRIBUTES> attr_desc = TerrainVertex::attributeDescription();
+    VkVertexInputBindingDescription bind_desc = OceanVertex::bindingDescription();
+    std::array<VkVertexInputAttributeDescription, OceanVertex::NUM_ATTRIBUTES> attr_desc = OceanVertex::attributeDescription();
 
     VkPipelineVertexInputStateCreateInfo vert_in_ci;
     vert_in_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;

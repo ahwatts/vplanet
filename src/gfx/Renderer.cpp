@@ -12,6 +12,7 @@ gfx::Renderer::Renderer(System *system)
     : m_system{system},
       m_render_pass{VK_NULL_HANDLE},
       m_framebuffers{},
+      m_ocean_pipeline{this},
       m_terrain_pipeline{this}
 {}
 
@@ -23,9 +24,11 @@ void gfx::Renderer::init() {
     initRenderPass();
     initFramebuffers();
     m_terrain_pipeline.init();
+    m_ocean_pipeline.init();
 }
 
 void gfx::Renderer::dispose() {
+    m_ocean_pipeline.dispose();
     m_terrain_pipeline.dispose();
     cleanupFramebuffers();
     cleanupRenderPass();
@@ -41,6 +44,10 @@ VkRenderPass gfx::Renderer::renderPass() const {
 
 gfx::TerrainPipeline& gfx::Renderer::terrainPipeline() {
     return m_terrain_pipeline;
+}
+
+gfx::OceanPipeline& gfx::Renderer::oceanPipeline() {
+    return m_ocean_pipeline;
 }
 
 void gfx::Renderer::recordCommands(VkCommandBuffer cmd_buf, VkDescriptorSet xforms, uint32_t framebuffer_index) {
@@ -60,6 +67,7 @@ void gfx::Renderer::recordCommands(VkCommandBuffer cmd_buf, VkDescriptorSet xfor
 
     vkCmdBeginRenderPass(cmd_buf, &rp_bi, VK_SUBPASS_CONTENTS_INLINE);
     m_terrain_pipeline.recordCommands(cmd_buf, xforms);
+    m_ocean_pipeline.recordCommands(cmd_buf, xforms);
     vkCmdEndRenderPass(cmd_buf);
 }
 

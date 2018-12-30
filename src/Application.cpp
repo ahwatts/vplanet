@@ -47,6 +47,9 @@ void Application::init() {
     Terrain terrain{2.0, 5, curved_noise};
     m_gfx.setTerrainGeometry(terrain.vertices(), terrain.elements());
 
+    Ocean ocean{1.97, 5};
+    m_gfx.setOceanGeometry(ocean.vertices(), ocean.indices());
+
     m_xforms.model = glm::mat4x4{1.0};
     m_xforms.view = glm::lookAt(
         glm::vec3{0.0, 0.0, 5.0},

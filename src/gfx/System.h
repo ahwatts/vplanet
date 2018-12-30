@@ -11,6 +11,7 @@
 #include "Commands.h"
 #include "DepthBuffer.h"
 #include "Renderer.h"
+#include "Resource.h"
 #include "Swapchain.h"
 #include "Uniforms.h"
 
@@ -37,7 +38,8 @@ namespace gfx {
         const Renderer& renderer() const;
         const XformUniforms& transformUniforms() const;
 
-        void setTerrainGeometry(const std::vector<TerrainVertex> &vertices, const std::vector<uint32_t> &elements);
+        void setTerrainGeometry(const std::vector<TerrainVertex> &vertices, const std::vector<uint32_t> &indices);
+        void setOceanGeometry(const std::vector<OceanVertex> &vertices, const std::vector<uint32_t> &indices);
         void setTransforms(const Transforms &xforms, uint32_t index);
         void recordCommandBuffers();
         uint32_t startFrame();
@@ -47,14 +49,11 @@ namespace gfx {
 
         uint32_t chooseMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties) const;
 
-        void createBuffer(
-            VkDeviceSize size,
-            VkBufferUsageFlags usage,
-            VkMemoryPropertyFlags mem_props,
-            VkBuffer &buffer,
-            VkDeviceMemory &memory);
-
+        void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags mem_props, VkBuffer &buffer, VkDeviceMemory &memory);
+        void createBufferWithData(const void *data, size_t data_size, VkBufferUsageFlags buffer_type, VkBuffer &dst_buffer, VkDeviceMemory &dst_memory);
         void copyBuffer(VkBuffer dst, VkBuffer src, VkDeviceSize size);
+
+        void createShaderModule(const Resource &rsrc, VkShaderModule &shader);
 
     private:
         void initInstance(bool debug);
