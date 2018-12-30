@@ -36,6 +36,7 @@ void gfx::OceanPipeline::init() {
 }
 
 void gfx::OceanPipeline::dispose() {
+    cleanupGeometryBuffers();
     Pipeline::dispose();
     cleanupShaderModules();
 }
