@@ -218,7 +218,7 @@ void gfx::TerrainPipeline::initPipeline() {
     raster_ci.rasterizerDiscardEnable = VK_FALSE;
     raster_ci.polygonMode = VK_POLYGON_MODE_FILL;
     raster_ci.cullMode = VK_CULL_MODE_BACK_BIT;
-    raster_ci.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    raster_ci.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     raster_ci.depthBiasEnable = VK_FALSE;
     raster_ci.depthBiasConstantFactor = 0.0;
     raster_ci.depthBiasClamp = 0.0;
