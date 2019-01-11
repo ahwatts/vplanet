@@ -9,6 +9,7 @@
 
 #include "OceanPipeline.h"
 #include "TerrainPipeline.h"
+#include "Uniforms.h"
 
 namespace gfx {
     class System;
@@ -39,6 +40,7 @@ namespace gfx {
         VkRenderPass m_render_pass;
         std::vector<VkFramebuffer> m_framebuffers;
 
+        SceneUniformSet m_uniforms;
         OceanPipeline m_ocean_pipeline;
         TerrainPipeline m_terrain_pipeline;
     };

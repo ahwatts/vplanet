@@ -36,11 +36,23 @@ namespace gfx {
         const DepthBuffer& depthBuffer() const;
         const Swapchain& swapchain() const;
         const Renderer& renderer() const;
-        const XformUniforms& transformUniforms() const;
+        Uniforms& uniforms();
 
         void setTerrainGeometry(const std::vector<TerrainVertex> &vertices, const std::vector<uint32_t> &indices);
+        void setTerrainTransform(const glm::mat4x4 &xform);
+        void writeTerrainTransform(uint32_t buffer_index);
+
         void setOceanGeometry(const std::vector<OceanVertex> &vertices, const std::vector<uint32_t> &indices);
-        void setTransforms(const Transforms &xforms, uint32_t index);
+        void setOceanTransform(const glm::mat4x4 &xform);
+        void writeOceanTransform(uint32_t buffer_index);
+
+        void setViewProjectionTransform(const ViewProjectionTransform &xform);
+        void writeViewProjectionTransform(uint32_t buffer_index);
+
+        void enableLight(uint32_t index, const glm::vec3 &direction);
+        void disableLight(uint32_t index);
+        void writeLightList(uint32_t buffer_index);
+
         void recordCommandBuffers();
         uint32_t startFrame();
         void drawFrame(uint32_t image_index);
@@ -104,7 +116,7 @@ namespace gfx {
         Swapchain m_swapchain;
         DepthBuffer m_depth_buffer;
         Renderer m_renderer;
-        XformUniforms m_xform_uniforms;
+        Uniforms m_uniforms;
     };
 };
 

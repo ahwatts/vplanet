@@ -5,21 +5,24 @@ layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec4 inColor;
 layout(location = 2) in vec3 inNormal;
 
-layout(set = 0, binding = 0) uniform Transformations {
-    mat4x4 model;
+layout(set = 0, binding = 0) uniform ViewProjectionTransformation {
     mat4x4 view;
     mat4x4 projection;
-} xforms;
+};
+
+layout(set = 1, binding = 0) uniform ModelTransformation {
+    mat4x4 model;
+};
 
 out gl_PerVertex {
     vec4 gl_Position;
 };
 
 layout(location = 0) out vec4 outColor;
-layout(location = 1) out vec4 outNormal;
+layout(location = 1) out vec3 outNormal;
 
 void main(void) {
-    gl_Position = xforms.projection * xforms.view * xforms.model * vec4(inPosition, 1.0);
+    gl_Position = projection * view * model * vec4(inPosition, 1.0);
     outColor = inColor;
-    outNormal = xforms.model * vec4(inNormal, 1.0);
+    outNormal = normalize(mat3x3(model) * inNormal);
 }

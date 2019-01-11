@@ -126,7 +126,7 @@ void gfx::OceanPipeline::initPipelineLayout() {
 
     System *system = m_renderer->system();
     VkDevice device = system->device();
-    VkDescriptorSetLayout xform_layout = system->transformUniforms().descriptorSetLayout();
+    VkDescriptorSetLayout xform_layout = VK_NULL_HANDLE; // system->transformUniforms().descriptorSetLayout();
 
     VkPipelineLayoutCreateInfo pl_ci;
     pl_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;

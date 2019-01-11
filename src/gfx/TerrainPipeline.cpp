@@ -9,12 +9,14 @@
 #include "Renderer.h"
 #include "Resource.h"
 #include "System.h"
+#include "Uniforms.h"
 
 const Resource TERRAIN_VERT_BYTECODE = LOAD_RESOURCE(terrain_vert_spv);
 const Resource TERRAIN_FRAG_BYTECODE = LOAD_RESOURCE(terrain_frag_spv);
 
 gfx::TerrainPipeline::TerrainPipeline(Renderer *renderer)
     : Pipeline(renderer),
+      m_uniforms{&renderer->system()->uniforms()},
       m_vertex_shader{VK_NULL_HANDLE},
       m_fragment_shader{VK_NULL_HANDLE},
       m_num_indices{0},
@@ -30,12 +32,14 @@ gfx::TerrainPipeline::~TerrainPipeline() {
 
 void gfx::TerrainPipeline::init() {
     initShaderModules();
+    m_uniforms.init();
     Pipeline::init();
 }
 
 void gfx::TerrainPipeline::dispose() {
     cleanupGeometryBuffers();
     Pipeline::dispose();
+    m_uniforms.dispose();
     cleanupShaderModules();
 }
 
@@ -124,7 +128,7 @@ void gfx::TerrainPipeline::initPipelineLayout() {
 
     System *system = m_renderer->system();
     VkDevice device = system->device();
-    VkDescriptorSetLayout xform_layout = system->transformUniforms().descriptorSetLayout();
+    VkDescriptorSetLayout xform_layout = VK_NULL_HANDLE; // system->transformUniforms().descriptorSetLayout();
 
     VkPipelineLayoutCreateInfo pl_ci;
     pl_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
