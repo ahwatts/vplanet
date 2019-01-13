@@ -33,12 +33,14 @@ gfx::OceanPipeline::~OceanPipeline() {
 
 void gfx::OceanPipeline::init() {
     initShaderModules();
+    m_uniforms.init();
     Pipeline::init();
 }
 
 void gfx::OceanPipeline::dispose() {
     cleanupGeometryBuffers();
     Pipeline::dispose();
+    m_uniforms.dispose();
     cleanupShaderModules();
 }
 

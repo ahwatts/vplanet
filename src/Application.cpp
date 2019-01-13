@@ -62,10 +62,13 @@ void Application::init() {
         static_cast<float>(m_window_height),
         0.1f, 100.0f);
     vp_xform.projection[1][1] *= -1;
+    m_gfx.setViewProjectionTransform(vp_xform);
+    m_gfx.enableLight(0, { -1.0, -1.0, -1.0 });
 
     uint32_t num_images = m_gfx.swapchain().images().size();
     for (uint32_t i = 0; i < num_images; ++i) {
-        m_gfx.setViewProjectionTransform(vp_xform);
+        m_gfx.writeViewProjectionTransform(i);
+        m_gfx.writeLightList(i);
     }
 
     m_gfx.recordCommandBuffers();
@@ -76,15 +79,20 @@ void Application::dispose() {
 }
 
 void Application::run() {
+    glm::mat4x4 model;
+
     try {
         static auto start_time = std::chrono::high_resolution_clock::now();
         while (!glfwWindowShouldClose(m_window)) {
             auto current_time = std::chrono::high_resolution_clock::now();
             float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
-            // m_xforms.model = glm::rotate(glm::mat4x4{1.0}, time * glm::radians(15.0f), glm::vec3{0.0, 1.0, 0.0});
+            model = glm::rotate(glm::mat4x4{1.0}, time * glm::radians(15.0f), glm::vec3{0.0, 1.0, 0.0});
 
             uint32_t image_index = m_gfx.startFrame();
-            // m_gfx.setTransforms(m_xforms, image_index);
+            m_gfx.setTerrainTransform(model);
+            m_gfx.setOceanTransform(model);
+            m_gfx.writeTerrainTransform(image_index);
+            m_gfx.writeOceanTransform(image_index);
             m_gfx.drawFrame(image_index);
             m_gfx.presentFrame(image_index);
             glfwPollEvents();

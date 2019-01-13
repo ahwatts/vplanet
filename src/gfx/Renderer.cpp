@@ -26,6 +26,7 @@ void gfx::Renderer::init() {
     initPipelineLayout();
     initRenderPass();
     initFramebuffers();
+    m_uniforms.init();
     m_terrain_pipeline.init();
     m_ocean_pipeline.init();
 }
@@ -33,6 +34,7 @@ void gfx::Renderer::init() {
 void gfx::Renderer::dispose() {
     m_ocean_pipeline.dispose();
     m_terrain_pipeline.dispose();
+    m_uniforms.dispose();
     cleanupFramebuffers();
     cleanupRenderPass();
     cleanupPipelineLayout();

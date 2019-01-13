@@ -50,10 +50,11 @@ void gfx::Uniforms::initDescriptorPool() {
 
     VkDevice device = m_system->device();
     uint32_t num_images = m_system->swapchain().images().size();
+    uint32_t num_descriptors = 4 * num_images;
 
     std::array<VkDescriptorPoolSize, 1> pool_sizes{};
     pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    pool_sizes[0].descriptorCount = 3 * num_images;
+    pool_sizes[0].descriptorCount = num_descriptors;
 
     VkDescriptorPoolCreateInfo dp_ci;
     dp_ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -61,7 +62,7 @@ void gfx::Uniforms::initDescriptorPool() {
     dp_ci.flags = 0;
     dp_ci.poolSizeCount = pool_sizes.size();
     dp_ci.pPoolSizes = pool_sizes.data();
-    dp_ci.maxSets = 3 * num_images;
+    dp_ci.maxSets = num_descriptors;
 
     VkResult rslt = vkCreateDescriptorPool(device, &dp_ci, nullptr, &m_descriptor_pool);
     if (rslt != VK_SUCCESS) {
@@ -81,7 +82,6 @@ void gfx::Uniforms::cleanupDescriptorPool() {
 
 gfx::UniformSet::UniformSet(Uniforms *uniforms)
     : m_uniforms{uniforms},
-      m_descriptor_set_layout{VK_NULL_HANDLE},
       m_descriptor_sets{}
 {}
 
@@ -327,7 +327,7 @@ void gfx::SceneUniformSet::initDescriptorSets() {
     VkDevice device = gfx->device();
     uint32_t num_images = gfx->swapchain().images().size();
 
-    std::vector<VkDescriptorSetLayout> layouts{num_images, m_descriptor_set_layout};
+    std::vector<VkDescriptorSetLayout> layouts{num_images, c_descriptor_set_layout};
     m_descriptor_sets.resize(num_images, VK_NULL_HANDLE);
 
     VkDescriptorSetAllocateInfo ds_ai;
@@ -521,7 +521,7 @@ void gfx::ModelUniformSet::initDescriptorSets() {
     VkDevice device = gfx->device();
     uint32_t num_images = gfx->swapchain().images().size();
 
-    std::vector<VkDescriptorSetLayout> layouts{num_images, m_descriptor_set_layout};
+    std::vector<VkDescriptorSetLayout> layouts{num_images, c_descriptor_set_layout};
     m_descriptor_sets.resize(num_images, VK_NULL_HANDLE);
 
     VkDescriptorSetAllocateInfo ds_ai;
@@ -542,7 +542,7 @@ void gfx::ModelUniformSet::initDescriptorSets() {
         VkDescriptorBufferInfo dbi0;
         dbi0.buffer = m_model_buffers[i];
         dbi0.offset = 0;
-        dbi0.range = sizeof(ViewProjectionTransform);
+        dbi0.range = sizeof(m_model_transform);
 
         std::array<VkWriteDescriptorSet, 1> dsc_writes{};
         dsc_writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;

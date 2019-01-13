@@ -60,7 +60,6 @@ namespace gfx {
         void cleanupDescriptorSets();
 
         Uniforms *m_uniforms;
-        VkDescriptorSetLayout m_descriptor_set_layout;
         std::vector<VkDescriptorSet> m_descriptor_sets;
     };
 
