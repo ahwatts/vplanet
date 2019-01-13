@@ -28,6 +28,13 @@ namespace gfx {
         TerrainPipeline& terrainPipeline();
         OceanPipeline& oceanPipeline();
 
+        void setViewProjectionTransform(const ViewProjectionTransform &xform);
+        void writeViewProjectionTransform(uint32_t buffer_index);
+
+        void enableLight(uint32_t index, const glm::vec3 &direction);
+        void disableLight(uint32_t index);
+        void writeLightList(uint32_t buffer_index);
+
         void recordCommands(VkCommandBuffer cmd_buf, uint32_t fb_index);
 
     private:

@@ -57,6 +57,14 @@ void gfx::TerrainPipeline::setGeometry(const std::vector<TerrainVertex> &verts, 
     m_num_indices = indices.size();
 }
 
+void gfx::TerrainPipeline::setTransform(const glm::mat4x4 &xform) {
+    m_uniforms.setTransform(xform);
+}
+
+void gfx::TerrainPipeline::writeTransform(uint32_t buffer_index) {
+    m_uniforms.updateModelBuffer(buffer_index);
+}
+
 void gfx::TerrainPipeline::cleanupGeometryBuffers() {
     VkDevice device = m_renderer->system()->device();
     m_num_indices = 0;
@@ -83,14 +91,17 @@ void gfx::TerrainPipeline::cleanupGeometryBuffers() {
     }
 }
 
-void gfx::TerrainPipeline::recordCommands(VkCommandBuffer cmd_buf) {
+void gfx::TerrainPipeline::recordCommands(VkCommandBuffer cmd_buf, uint32_t fb_index) {
     VkBuffer vertex_buffers[1] = { m_vertex_buffer };
     VkDeviceSize vertex_buffer_offsets[1] = { 0 };
+
+    VkPipelineLayout pipeline_layout = m_renderer->pipelineLayout();
+    const std::vector<VkDescriptorSet> &model_uniforms = m_uniforms.descriptorSets();
 
     vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
     vkCmdBindVertexBuffers(cmd_buf, 0, 1, vertex_buffers, vertex_buffer_offsets);
     vkCmdBindIndexBuffer(cmd_buf, m_index_buffer, 0, VK_INDEX_TYPE_UINT32);
-    // vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layout, 0, 1, &xforms, 0, nullptr);
+    vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 1, 1, &model_uniforms[fb_index], 0, nullptr);
     vkCmdDrawIndexed(cmd_buf, m_num_indices, 1, 0, 0, 0);
 }
 

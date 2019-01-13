@@ -120,21 +120,57 @@ const gfx::DepthBuffer& gfx::System::depthBuffer() const {
     return m_depth_buffer;
 }
 
-// const gfx::XformUniforms& gfx::System::transformUniforms() const {
-//     return m_xform_uniforms;
-// }
+const gfx::Renderer& gfx::System::renderer() const {
+    return m_renderer;
+}
 
-// void gfx::System::setTerrainGeometry(const std::vector<TerrainVertex> &verts, const std::vector<uint32_t> &elems) {
-//     m_renderer.terrainPipeline().setGeometry(verts, elems);
-// }
+gfx::Uniforms& gfx::System::uniforms() {
+    return m_uniforms;
+}
 
-// void gfx::System::setOceanGeometry(const std::vector<OceanVertex> &verts, const std::vector<uint32_t> &indices) {
-//     m_renderer.oceanPipeline().setGeometry(verts, indices);
-// }
+void gfx::System::setTerrainGeometry(const std::vector<TerrainVertex> &verts, const std::vector<uint32_t> &elems) {
+    m_renderer.terrainPipeline().setGeometry(verts, elems);
+}
 
-// void gfx::System::setTransforms(const gfx::Transforms &xforms, uint32_t index) {
-//     m_xform_uniforms.setTransforms(xforms, index);
-// }
+void gfx::System::setTerrainTransform(const glm::mat4x4 &xform) {
+    m_renderer.terrainPipeline().setTransform(xform);
+}
+
+void gfx::System::writeTerrainTransform(uint32_t buffer_index) {
+    m_renderer.terrainPipeline().writeTransform(buffer_index);
+}
+
+void gfx::System::setOceanGeometry(const std::vector<OceanVertex> &verts, const std::vector<uint32_t> &indices) {
+    m_renderer.oceanPipeline().setGeometry(verts, indices);
+}
+
+void gfx::System::setOceanTransform(const glm::mat4x4 &xform) {
+    m_renderer.oceanPipeline().setTransform(xform);
+}
+
+void gfx::System::writeOceanTransform(uint32_t buffer_index) {
+    m_renderer.oceanPipeline().writeTransform(buffer_index);
+}
+
+void gfx::System::setViewProjectionTransform(const ViewProjectionTransform &xform) {
+    m_renderer.setViewProjectionTransform(xform);
+}
+
+void gfx::System::writeViewProjectionTransform(uint32_t buffer_index) {
+    m_renderer.writeViewProjectionTransform(buffer_index);
+}
+
+void gfx::System::enableLight(uint32_t index, const glm::vec3 &direction) {
+    m_renderer.enableLight(index, direction);
+}
+
+void gfx::System::disableLight(uint32_t index) {
+    m_renderer.disableLight(index);
+}
+
+void gfx::System::writeLightList(uint32_t buffer_index) {
+    m_renderer.writeLightList(buffer_index);
+}
 
 void gfx::System::recordCommandBuffers() {
     const std::vector<VkCommandBuffer> &draw_commands = m_commands.drawCommands();

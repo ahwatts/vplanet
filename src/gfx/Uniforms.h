@@ -50,12 +50,13 @@ namespace gfx {
         UniformSet(Uniforms *uniforms);
         virtual ~UniformSet();
 
-        void init();
-        void dispose();
+        virtual void init();
+        virtual void dispose();
 
         const std::vector<VkDescriptorSet>& descriptorSets() const;
 
     protected:
+        virtual void initDescriptorSets() = 0;
         void cleanupDescriptorSets();
 
         Uniforms *m_uniforms;
@@ -68,8 +69,12 @@ namespace gfx {
         SceneUniformSet(Uniforms *uniforms);
         virtual ~SceneUniformSet();
 
-        void init();
-        void dispose();
+        virtual void init();
+        virtual void dispose();
+
+        static void initDescriptorSetLayout(System *gfx);
+        static void cleanupDescriptorSetLayout(System *gfx);
+        static VkDescriptorSetLayout descriptorSetLayout();
 
         void setTransforms(const ViewProjectionTransform &xform);
         void updateViewProjectionBuffer(uint32_t buffer_index);
@@ -79,13 +84,12 @@ namespace gfx {
         void updateLightListBuffer(uint32_t buffer_index);
 
     protected:
-        void initDescriptorSetLayout();
-
         void initUniformBuffers();
         void cleanupUniformBuffers();
 
-        void initDescriptorSets();
+        virtual void initDescriptorSets();
 
+        static VkDescriptorSetLayout c_descriptor_set_layout;
         ViewProjectionTransform m_view_projection;
         LightInfo m_lights[MAX_LIGHTS];
         std::vector<VkBuffer> m_view_projection_buffers;
@@ -97,22 +101,25 @@ namespace gfx {
     class ModelUniformSet : public UniformSet {
     public:
         ModelUniformSet(Uniforms *uniforms);
-        ~ModelUniformSet();
+        virtual ~ModelUniformSet();
 
-        void init();
-        void dispose();
+        virtual void init();
+        virtual void dispose();
+
+        static void initDescriptorSetLayout(System *gfx);
+        static void cleanupDescriptorSetLayout(System *gfx);
+        static VkDescriptorSetLayout descriptorSetLayout();
 
         void setTransform(const glm::mat4x4 &model);
         void updateModelBuffer(uint32_t buffer_index);
 
     protected:
-        void initDescriptorSetLayout();
-
         void initUniformBuffers();
         void cleanupUniformBuffers();
 
-        void initDescriptorSets();
+        virtual void initDescriptorSets();
 
+        static VkDescriptorSetLayout c_descriptor_set_layout;
         glm::mat4x4 m_model_transform;
         std::vector<VkBuffer> m_model_buffers;
         std::vector<VkDeviceMemory> m_model_buffer_memories;

@@ -21,13 +21,15 @@ namespace gfx {
         void dispose();
 
         void setGeometry(const std::vector<OceanVertex> &verts, const std::vector<uint32_t> &elems);
-        void recordCommands(VkCommandBuffer cmd_buf);
+        void setTransform(const glm::mat4x4 &xform);
+        void writeTransform(uint32_t buffer_index);
+
+        void recordCommands(VkCommandBuffer cmd_buf, uint32_t fb_index);
 
     private:
         void initShaderModules();
         void cleanupShaderModules();
 
-        virtual void initPipelineLayout();
         virtual void initPipeline();
 
         void cleanupGeometryBuffers();

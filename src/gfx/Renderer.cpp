@@ -42,6 +42,11 @@ gfx::System* gfx::Renderer::system() {
     return m_system;
 }
 
+
+VkPipelineLayout gfx::Renderer::pipelineLayout() const {
+    return m_pipeline_layout;
+}
+
 VkRenderPass gfx::Renderer::renderPass() const {
     return m_render_pass;
 }
@@ -54,7 +59,27 @@ gfx::OceanPipeline& gfx::Renderer::oceanPipeline() {
     return m_ocean_pipeline;
 }
 
-void gfx::Renderer::recordCommands(VkCommandBuffer cmd_buf, uint32_t framebuffer_index) {
+void gfx::Renderer::setViewProjectionTransform(const ViewProjectionTransform &xform) {
+    m_uniforms.setTransforms(xform);
+}
+
+void gfx::Renderer::writeViewProjectionTransform(uint32_t buffer_index) {
+    m_uniforms.updateViewProjectionBuffer(buffer_index);
+}
+
+void gfx::Renderer::enableLight(uint32_t index, const glm::vec3 &direction) {
+    m_uniforms.enableLight(index, direction);
+}
+
+void gfx::Renderer::disableLight(uint32_t index) {
+    m_uniforms.disableLight(index);
+}
+
+void gfx::Renderer::writeLightList(uint32_t buffer_index) {
+    m_uniforms.updateLightListBuffer(buffer_index);
+}
+
+void gfx::Renderer::recordCommands(VkCommandBuffer cmd_buf, uint32_t fb_index) {
     std::array<VkClearValue, 2> clear_values{};
     clear_values[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
     clear_values[1].depthStencil = { 1.0f, 0 };
@@ -63,15 +88,18 @@ void gfx::Renderer::recordCommands(VkCommandBuffer cmd_buf, uint32_t framebuffer
     rp_bi.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     rp_bi.pNext = nullptr;
     rp_bi.renderPass = m_render_pass;
-    rp_bi.framebuffer = m_framebuffers[framebuffer_index];
+    rp_bi.framebuffer = m_framebuffers[fb_index];
     rp_bi.renderArea.offset = { 0, 0 };
     rp_bi.renderArea.extent = m_system->swapchain().extent();
     rp_bi.clearValueCount = clear_values.size();
     rp_bi.pClearValues = clear_values.data();
 
+    const std::vector<VkDescriptorSet> &scene_uniforms = m_uniforms.descriptorSets();
+
     vkCmdBeginRenderPass(cmd_buf, &rp_bi, VK_SUBPASS_CONTENTS_INLINE);
-    m_terrain_pipeline.recordCommands(cmd_buf);
-    m_ocean_pipeline.recordCommands(cmd_buf);
+    vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layout, 0, 1, &scene_uniforms[fb_index], 0, nullptr);
+    m_terrain_pipeline.recordCommands(cmd_buf, fb_index);
+    m_ocean_pipeline.recordCommands(cmd_buf, fb_index);
     vkCmdEndRenderPass(cmd_buf);
 }
 
@@ -81,14 +109,17 @@ void gfx::Renderer::initPipelineLayout() {
     }
 
     VkDevice device = m_system->device();
-    VkDescriptorSetLayout xform_layout = VK_NULL_HANDLE; // system->transformUniforms().descriptorSetLayout();
+
+    std::array<VkDescriptorSetLayout, 2> layouts;
+    layouts[0] = SceneUniformSet::descriptorSetLayout();
+    layouts[1] = ModelUniformSet::descriptorSetLayout();
 
     VkPipelineLayoutCreateInfo pl_ci;
     pl_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pl_ci.pNext = nullptr;
     pl_ci.flags = 0;
-    pl_ci.setLayoutCount = 1;
-    pl_ci.pSetLayouts = &xform_layout;
+    pl_ci.setLayoutCount = layouts.size();
+    pl_ci.pSetLayouts = layouts.data();
     pl_ci.pushConstantRangeCount = 0;
     pl_ci.pPushConstantRanges = nullptr;
 

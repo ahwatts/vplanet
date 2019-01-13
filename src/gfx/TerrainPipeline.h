@@ -7,6 +7,9 @@
 
 #include "../vulkan.h"
 
+#include "../glm_defines.h"
+#include <glm/mat4x4.hpp>
+
 #include "../Terrain.h"
 #include "Pipeline.h"
 #include "Resource.h"
@@ -24,7 +27,10 @@ namespace gfx {
         void dispose();
 
         void setGeometry(const std::vector<TerrainVertex> &verts, const std::vector<uint32_t> &elems);
-        void recordCommands(VkCommandBuffer cmd_buf);
+        void setTransform(const glm::mat4x4 &xform);
+        void writeTransform(uint32_t buffer_index);
+
+        void recordCommands(VkCommandBuffer cmd_buf, uint32_t fb_index);
 
     private:
         void initShaderModules();
