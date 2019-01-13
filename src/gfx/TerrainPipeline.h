@@ -24,13 +24,12 @@ namespace gfx {
         void dispose();
 
         void setGeometry(const std::vector<TerrainVertex> &verts, const std::vector<uint32_t> &elems);
-        void recordCommands(VkCommandBuffer cmd_buf, VkDescriptorSet xforms);
+        void recordCommands(VkCommandBuffer cmd_buf);
 
     private:
         void initShaderModules();
         void cleanupShaderModules();
 
-        virtual void initPipelineLayout();
         virtual void initPipeline();
 
         void cleanupGeometryBuffers();

@@ -7,6 +7,7 @@
 
 #include "../Ocean.h"
 #include "Pipeline.h"
+#include "Uniforms.h"
 
 namespace gfx {
     class Renderer;
@@ -20,7 +21,7 @@ namespace gfx {
         void dispose();
 
         void setGeometry(const std::vector<OceanVertex> &verts, const std::vector<uint32_t> &elems);
-        void recordCommands(VkCommandBuffer cmd_buf, VkDescriptorSet xforms);
+        void recordCommands(VkCommandBuffer cmd_buf);
 
     private:
         void initShaderModules();
@@ -31,6 +32,7 @@ namespace gfx {
 
         void cleanupGeometryBuffers();
 
+        ModelUniformSet m_uniforms;
         VkShaderModule m_vertex_shader, m_fragment_shader;
         uint32_t m_num_indices;
         VkBuffer m_vertex_buffer, m_index_buffer;

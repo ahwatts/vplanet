@@ -10,8 +10,10 @@
 
 gfx::Renderer::Renderer(System *system)
     : m_system{system},
+      m_pipeline_layout{VK_NULL_HANDLE},
       m_render_pass{VK_NULL_HANDLE},
       m_framebuffers{},
+      m_uniforms{&system->uniforms()},
       m_ocean_pipeline{this},
       m_terrain_pipeline{this}
 {}
@@ -21,6 +23,7 @@ gfx::Renderer::~Renderer() {
 }
 
 void gfx::Renderer::init() {
+    initPipelineLayout();
     initRenderPass();
     initFramebuffers();
     m_terrain_pipeline.init();
@@ -32,6 +35,7 @@ void gfx::Renderer::dispose() {
     m_terrain_pipeline.dispose();
     cleanupFramebuffers();
     cleanupRenderPass();
+    cleanupPipelineLayout();
 }
 
 gfx::System* gfx::Renderer::system() {
@@ -50,7 +54,7 @@ gfx::OceanPipeline& gfx::Renderer::oceanPipeline() {
     return m_ocean_pipeline;
 }
 
-void gfx::Renderer::recordCommands(VkCommandBuffer cmd_buf, VkDescriptorSet xforms, uint32_t framebuffer_index) {
+void gfx::Renderer::recordCommands(VkCommandBuffer cmd_buf, uint32_t framebuffer_index) {
     std::array<VkClearValue, 2> clear_values{};
     clear_values[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
     clear_values[1].depthStencil = { 1.0f, 0 };
@@ -66,9 +70,42 @@ void gfx::Renderer::recordCommands(VkCommandBuffer cmd_buf, VkDescriptorSet xfor
     rp_bi.pClearValues = clear_values.data();
 
     vkCmdBeginRenderPass(cmd_buf, &rp_bi, VK_SUBPASS_CONTENTS_INLINE);
-    m_terrain_pipeline.recordCommands(cmd_buf, xforms);
-    m_ocean_pipeline.recordCommands(cmd_buf, xforms);
+    m_terrain_pipeline.recordCommands(cmd_buf);
+    m_ocean_pipeline.recordCommands(cmd_buf);
     vkCmdEndRenderPass(cmd_buf);
+}
+
+void gfx::Renderer::initPipelineLayout() {
+    if (m_pipeline_layout != VK_NULL_HANDLE) {
+        return;
+    }
+
+    VkDevice device = m_system->device();
+    VkDescriptorSetLayout xform_layout = VK_NULL_HANDLE; // system->transformUniforms().descriptorSetLayout();
+
+    VkPipelineLayoutCreateInfo pl_ci;
+    pl_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pl_ci.pNext = nullptr;
+    pl_ci.flags = 0;
+    pl_ci.setLayoutCount = 1;
+    pl_ci.pSetLayouts = &xform_layout;
+    pl_ci.pushConstantRangeCount = 0;
+    pl_ci.pPushConstantRanges = nullptr;
+
+    VkResult rslt = vkCreatePipelineLayout(device, &pl_ci, nullptr, &m_pipeline_layout);
+    if (rslt != VK_SUCCESS) {
+        std::stringstream msg;
+        msg << "Unable to create pipeline layout. Error code: " << rslt;
+        throw std::runtime_error(msg.str());
+    }
+}
+
+void gfx::Renderer::cleanupPipelineLayout() {
+    VkDevice device = m_system->device();
+    if (device != VK_NULL_HANDLE && m_pipeline_layout != VK_NULL_HANDLE) {
+        vkDestroyPipelineLayout(device, m_pipeline_layout, nullptr);
+        m_pipeline_layout = VK_NULL_HANDLE;
+    }
 }
 
 void gfx::Renderer::initRenderPass() {

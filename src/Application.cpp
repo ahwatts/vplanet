@@ -9,6 +9,7 @@
 #include <glm/mat4x4.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "gfx/Uniforms.h"
 #include "Application.h"
 #include "Curve.h"
 #include "Noise.h"
@@ -18,8 +19,7 @@ Application::Application(GLFWwindow *window)
     : m_window{window},
       m_window_width{0},
       m_window_height{0},
-      m_gfx{window},
-      m_xforms{}
+      m_gfx{window}
 {
     glfwGetFramebufferSize(window, &m_window_width, &m_window_height);
     glfwSetWindowUserPointer(m_window, this);
@@ -50,21 +50,22 @@ void Application::init() {
     Ocean ocean{1.97, 5};
     m_gfx.setOceanGeometry(ocean.vertices(), ocean.indices());
 
-    m_xforms.model = glm::mat4x4{1.0};
-    m_xforms.view = glm::lookAt(
+    gfx::ViewProjectionTransform vp_xform{};
+
+    vp_xform.view = glm::lookAt(
         glm::vec3{0.0, 0.0, 5.0},
         glm::vec3{0.0, 0.0, 0.0},
         glm::vec3{0.0, 1.0, 0.0});
-    m_xforms.projection = glm::perspectiveFov(
+    vp_xform.projection = glm::perspectiveFov(
         20.0f,
         static_cast<float>(m_window_width),
         static_cast<float>(m_window_height),
         0.1f, 100.0f);
-    m_xforms.projection[1][1] *= -1;
+    vp_xform.projection[1][1] *= -1;
 
     uint32_t num_images = m_gfx.swapchain().images().size();
     for (uint32_t i = 0; i < num_images; ++i) {
-        m_gfx.setTransforms(m_xforms, i);
+        m_gfx.setViewProjectionTransform(vp_xform);
     }
 
     m_gfx.recordCommandBuffers();
@@ -80,10 +81,10 @@ void Application::run() {
         while (!glfwWindowShouldClose(m_window)) {
             auto current_time = std::chrono::high_resolution_clock::now();
             float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
-            m_xforms.model = glm::rotate(glm::mat4x4{1.0}, time * glm::radians(15.0f), glm::vec3{0.0, 1.0, 0.0});
+            // m_xforms.model = glm::rotate(glm::mat4x4{1.0}, time * glm::radians(15.0f), glm::vec3{0.0, 1.0, 0.0});
 
             uint32_t image_index = m_gfx.startFrame();
-            m_gfx.setTransforms(m_xforms, image_index);
+            // m_gfx.setTransforms(m_xforms, image_index);
             m_gfx.drawFrame(image_index);
             m_gfx.presentFrame(image_index);
             glfwPollEvents();

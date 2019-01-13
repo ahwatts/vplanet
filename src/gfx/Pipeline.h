@@ -19,14 +19,10 @@ namespace gfx {
         void dispose();
 
     protected:
-        virtual void initPipelineLayout() = 0;
-        void cleanupPipelineLayout();
-
         virtual void initPipeline() = 0;
         void cleanupPipeline();
 
         Renderer *m_renderer;
-        VkPipelineLayout m_pipeline_layout;
         VkPipeline m_pipeline;
     };
 }

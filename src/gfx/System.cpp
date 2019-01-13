@@ -43,7 +43,7 @@ gfx::System::System(GLFWwindow *window)
       m_swapchain{this},
       m_depth_buffer{this},
       m_renderer{this},
-      m_xform_uniforms{this}
+      m_uniforms{this}
 {}
 
 gfx::System::~System() {
@@ -63,13 +63,13 @@ void gfx::System::init(bool debug) {
     m_swapchain.init();
     m_commands.init();
     m_depth_buffer.init();
-    m_xform_uniforms.init();
+    m_uniforms.init();
     m_renderer.init();
 }
 
 void gfx::System::dispose() {
     m_renderer.dispose();
-    m_xform_uniforms.dispose();
+    m_uniforms.dispose();
     m_depth_buffer.dispose();
     m_commands.dispose();
     m_swapchain.dispose();
@@ -120,25 +120,24 @@ const gfx::DepthBuffer& gfx::System::depthBuffer() const {
     return m_depth_buffer;
 }
 
-const gfx::XformUniforms& gfx::System::transformUniforms() const {
-    return m_xform_uniforms;
-}
+// const gfx::XformUniforms& gfx::System::transformUniforms() const {
+//     return m_xform_uniforms;
+// }
 
-void gfx::System::setTerrainGeometry(const std::vector<TerrainVertex> &verts, const std::vector<uint32_t> &elems) {
-    m_renderer.terrainPipeline().setGeometry(verts, elems);
-}
+// void gfx::System::setTerrainGeometry(const std::vector<TerrainVertex> &verts, const std::vector<uint32_t> &elems) {
+//     m_renderer.terrainPipeline().setGeometry(verts, elems);
+// }
 
-void gfx::System::setOceanGeometry(const std::vector<OceanVertex> &verts, const std::vector<uint32_t> &indices) {
-    m_renderer.oceanPipeline().setGeometry(verts, indices);
-}
+// void gfx::System::setOceanGeometry(const std::vector<OceanVertex> &verts, const std::vector<uint32_t> &indices) {
+//     m_renderer.oceanPipeline().setGeometry(verts, indices);
+// }
 
-void gfx::System::setTransforms(const gfx::Transforms &xforms, uint32_t index) {
-    m_xform_uniforms.setTransforms(xforms, index);
-}
+// void gfx::System::setTransforms(const gfx::Transforms &xforms, uint32_t index) {
+//     m_xform_uniforms.setTransforms(xforms, index);
+// }
 
 void gfx::System::recordCommandBuffers() {
     const std::vector<VkCommandBuffer> &draw_commands = m_commands.drawCommands();
-    const std::vector<VkDescriptorSet> &xform_uniforms = m_xform_uniforms.descriptorSets();
 
     for (uint32_t i = 0; i < draw_commands.size(); ++i) {
         VkCommandBufferBeginInfo cb_bi;
@@ -154,7 +153,7 @@ void gfx::System::recordCommandBuffers() {
             throw std::runtime_error(msg.str());
         }
 
-        m_renderer.recordCommands(draw_commands[i], xform_uniforms[i], i);
+        m_renderer.recordCommands(draw_commands[i], i);
 
         rslt = vkEndCommandBuffer(draw_commands[i]);
         if (rslt != VK_SUCCESS) {

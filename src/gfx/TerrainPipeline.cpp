@@ -83,14 +83,14 @@ void gfx::TerrainPipeline::cleanupGeometryBuffers() {
     }
 }
 
-void gfx::TerrainPipeline::recordCommands(VkCommandBuffer cmd_buf, VkDescriptorSet xforms) {
+void gfx::TerrainPipeline::recordCommands(VkCommandBuffer cmd_buf) {
     VkBuffer vertex_buffers[1] = { m_vertex_buffer };
     VkDeviceSize vertex_buffer_offsets[1] = { 0 };
 
     vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
     vkCmdBindVertexBuffers(cmd_buf, 0, 1, vertex_buffers, vertex_buffer_offsets);
     vkCmdBindIndexBuffer(cmd_buf, m_index_buffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layout, 0, 1, &xforms, 0, nullptr);
+    // vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layout, 0, 1, &xforms, 0, nullptr);
     vkCmdDrawIndexed(cmd_buf, m_num_indices, 1, 0, 0, 0);
 }
 
@@ -118,32 +118,6 @@ void gfx::TerrainPipeline::cleanupShaderModules() {
             vkDestroyShaderModule(device, m_fragment_shader, nullptr);
             m_fragment_shader = VK_NULL_HANDLE;
         }
-    }
-}
-
-void gfx::TerrainPipeline::initPipelineLayout() {
-    if (m_pipeline_layout != VK_NULL_HANDLE) {
-        return;
-    }
-
-    System *system = m_renderer->system();
-    VkDevice device = system->device();
-    VkDescriptorSetLayout xform_layout = VK_NULL_HANDLE; // system->transformUniforms().descriptorSetLayout();
-
-    VkPipelineLayoutCreateInfo pl_ci;
-    pl_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pl_ci.pNext = nullptr;
-    pl_ci.flags = 0;
-    pl_ci.setLayoutCount = 1;
-    pl_ci.pSetLayouts = &xform_layout;
-    pl_ci.pushConstantRangeCount = 0;
-    pl_ci.pPushConstantRanges = nullptr;
-
-    VkResult rslt = vkCreatePipelineLayout(device, &pl_ci, nullptr, &m_pipeline_layout);
-    if (rslt != VK_SUCCESS) {
-        std::stringstream msg;
-        msg << "Unable to create pipeline layout. Error code: " << rslt;
-        throw std::runtime_error(msg.str());
     }
 }
 
@@ -297,7 +271,7 @@ void gfx::TerrainPipeline::initPipeline() {
     pipeline_ci.pDepthStencilState = &depth_ci;
     pipeline_ci.pColorBlendState = &blend_ci;
     pipeline_ci.pDynamicState = nullptr;
-    pipeline_ci.layout = m_pipeline_layout;
+    pipeline_ci.layout = m_renderer->pipelineLayout();
     pipeline_ci.renderPass = render_pass;
     pipeline_ci.subpass = 0;
     pipeline_ci.basePipelineHandle = VK_NULL_HANDLE;

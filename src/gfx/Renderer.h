@@ -23,13 +23,17 @@ namespace gfx {
         void dispose();
 
         System* system();
+        VkPipelineLayout pipelineLayout() const;
         VkRenderPass renderPass() const;
         TerrainPipeline& terrainPipeline();
         OceanPipeline& oceanPipeline();
 
-        void recordCommands(VkCommandBuffer cmd_buf, VkDescriptorSet xforms, uint32_t fb_index);
+        void recordCommands(VkCommandBuffer cmd_buf, uint32_t fb_index);
 
     private:
+        void initPipelineLayout();
+        void cleanupPipelineLayout();
+
         void initRenderPass();
         void cleanupRenderPass();
 
@@ -37,6 +41,7 @@ namespace gfx {
         void cleanupFramebuffers();
 
         System *m_system;
+        VkPipelineLayout m_pipeline_layout;
         VkRenderPass m_render_pass;
         std::vector<VkFramebuffer> m_framebuffers;
 

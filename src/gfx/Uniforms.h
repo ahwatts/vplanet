@@ -53,11 +53,9 @@ namespace gfx {
         void init();
         void dispose();
 
-        VkDescriptorSetLayout descriptorSetLayout() const;
         const std::vector<VkDescriptorSet>& descriptorSets() const;
 
     protected:
-        void cleanupDescriptorSetLayout();
         void cleanupDescriptorSets();
 
         Uniforms *m_uniforms;
