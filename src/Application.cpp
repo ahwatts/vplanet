@@ -1,6 +1,7 @@
 // -*- mode: c++; c-basic-offset: 4; encoding: utf-8; -*-
 
 #include <chrono>
+#include <iostream>
 
 #include "vulkan.h"
 
@@ -23,6 +24,7 @@ Application::Application(GLFWwindow *window)
 {
     glfwGetFramebufferSize(window, &m_window_width, &m_window_height);
     glfwSetWindowUserPointer(m_window, this);
+    glfwSetKeyCallback(m_window, keypressCallback);
 }
 
 Application::~Application() {
@@ -101,5 +103,54 @@ void Application::run() {
     } catch (std::runtime_error &ex) {
         m_gfx.waitIdle();
         throw;
+    }
+}
+
+void Application::keypressCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
+    Application *app = (Application*)glfwGetWindowUserPointer(window);
+    if (app != nullptr) {
+        app->handleKeypress(window, key, scancode, action, mods);
+    }
+}
+
+void Application::handleKeypress(GLFWwindow *window, int key, int scancode, int action, int mods) {
+    if (key == GLFW_KEY_ESCAPE) {
+        glfwSetWindowShouldClose(m_window, GLFW_TRUE);
+    } else {
+        const char *key_name = glfwGetKeyName(key, scancode);
+        if (key_name == nullptr) {
+            std::cout << "Unknown key";
+        } else {
+            std::cout << key_name << " key";
+        }
+
+        if (action == GLFW_PRESS) {
+            std::cout << " press";
+        } else if (action == GLFW_RELEASE) {
+            std::cout << " release";
+        } else if (action == GLFW_REPEAT) {
+            std::cout << " repeat";
+        } else {
+            std::cout << " unknown action";
+        }
+
+        std::cout << " with";
+        if (mods == 0) {
+            std::cout << " no mods";
+        } else {
+            if (mods & GLFW_MOD_SHIFT) {
+                std::cout << " shift";
+            }
+            if (mods & GLFW_MOD_CONTROL) {
+                std::cout << " control";
+            }
+            if (mods & GLFW_MOD_ALT) {
+                std::cout << " alt";
+            }
+            if (mods & GLFW_MOD_SUPER) {
+                std::cout << " super";
+            }
+        }
+        std::cout << std::endl;
     }
 }

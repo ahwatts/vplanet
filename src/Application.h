@@ -18,6 +18,9 @@ public:
 
     void run();
 
+    static void keypressCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
+    void handleKeypress(GLFWwindow *window, int key, int scancode, int action, int mods);
+
 private:
     GLFWwindow *m_window;
     int m_window_width, m_window_height;
