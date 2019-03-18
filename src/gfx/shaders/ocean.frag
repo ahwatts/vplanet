@@ -8,6 +8,7 @@ struct LightInfo {
 
 layout(location = 0) in vec4 inColor;
 layout(location = 1) in vec3 inNormal;
+layout(location = 2) in vec3 inEyeDir;
 
 layout(set = 0, binding = 1) uniform LightList {
     LightInfo lights[MAX_LIGHTS];
@@ -35,5 +36,17 @@ void main(void) {
     }
     diffuse_color = clamp(diffuse_color, 0.0, 1.0);
 
-    outColor = vec4(0.1*ambient_color + 0.9*diffuse_color, inColor.a);
+    float specular_pow = 12.0;
+    vec3 specular_color = vec3(0.0, 0.0, 0.0);
+    for (int i = 0; i < MAX_LIGHTS; ++i) {
+        if (lights[i].enabled) {
+            vec3 reflected = normalize(reflect(lights[i].direction, inNormal));
+
+            float specular = pow(dot(reflected, inEyeDir), specular_pow);
+            specular_color += specular * vec3(0.5, 0.5, 1.0);
+        }
+    }
+    specular_color = clamp(specular_color, 0.0, 1.0);
+
+    outColor = vec4(0.1*ambient_color + 0.9*diffuse_color + 0.5*specular_color, inColor.a);
 }
