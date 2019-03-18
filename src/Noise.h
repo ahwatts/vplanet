@@ -27,7 +27,7 @@ class Perlin : public NoiseFunction {
 public:
     Perlin();
     Perlin(double x_scale, double y_scale, double z_scale);
-    virtual ~Perlin() noexcept;
+    virtual ~Perlin();
 
     void setScales(double x, double y);
     void setScales(double x, double y, double z);
