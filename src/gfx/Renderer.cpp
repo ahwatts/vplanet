@@ -93,7 +93,7 @@ void gfx::Renderer::recordCommands(VkCommandBuffer cmd_buf, uint32_t fb_index) {
     rp_bi.framebuffer = m_framebuffers[fb_index];
     rp_bi.renderArea.offset = { 0, 0 };
     rp_bi.renderArea.extent = m_system->swapchain().extent();
-    rp_bi.clearValueCount = clear_values.size();
+    rp_bi.clearValueCount = static_cast<uint32_t>(clear_values.size());
     rp_bi.pClearValues = clear_values.data();
 
     const std::vector<VkDescriptorSet> &scene_uniforms = m_uniforms.descriptorSets();
@@ -120,7 +120,7 @@ void gfx::Renderer::initPipelineLayout() {
     pl_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pl_ci.pNext = nullptr;
     pl_ci.flags = 0;
-    pl_ci.setLayoutCount = layouts.size();
+    pl_ci.setLayoutCount = static_cast<uint32_t>(layouts.size());
     pl_ci.pSetLayouts = layouts.data();
     pl_ci.pushConstantRangeCount = 0;
     pl_ci.pPushConstantRanges = nullptr;
@@ -252,7 +252,7 @@ void gfx::Renderer::initFramebuffers() {
         fb_ci.pNext = nullptr;
         fb_ci.flags = 0;
         fb_ci.renderPass = m_render_pass;
-        fb_ci.attachmentCount = attachments.size();
+        fb_ci.attachmentCount = static_cast<uint32_t>(attachments.size());
         fb_ci.pAttachments = attachments.data();
         fb_ci.width = extent.width;
         fb_ci.height = extent.height;

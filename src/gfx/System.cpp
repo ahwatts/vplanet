@@ -237,12 +237,12 @@ void gfx::System::drawFrame(uint32_t image_index) {
     VkSubmitInfo si;
     si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     si.pNext = nullptr;
-    si.waitSemaphoreCount = wait_semaphores.size();
+    si.waitSemaphoreCount = static_cast<uint32_t>(wait_semaphores.size());
     si.pWaitSemaphores = wait_semaphores.data();
     si.pWaitDstStageMask = wait_stages.data();
     si.commandBufferCount = 1;
     si.pCommandBuffers = &draw_commands[image_index];
-    si.signalSemaphoreCount = signal_semaphores.size();
+    si.signalSemaphoreCount = static_cast<uint32_t>(signal_semaphores.size());
     si.pSignalSemaphores = signal_semaphores.data();
 
     VkResult rslt = vkQueueSubmit(m_commands.graphicsQueue(), 1, &si, VK_NULL_HANDLE);

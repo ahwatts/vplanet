@@ -145,7 +145,7 @@ void gfx::Swapchain::initImageViews() {
     m_image_views.resize(num_swapchain_images, VK_NULL_HANDLE);
     vkGetSwapchainImagesKHR(device, m_swapchain, &num_swapchain_images, m_images.data());
 
-    for (int i = 0; i < num_swapchain_images; ++i) {
+    for (unsigned int i = 0; i < num_swapchain_images; ++i) {
         VkImageViewCreateInfo iv_ci;
         iv_ci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         iv_ci.pNext = nullptr;

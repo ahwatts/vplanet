@@ -179,7 +179,7 @@ void gfx::Commands::initCommandBuffers() {
     }
 
     VkDevice device = m_system->device();
-    uint32_t num_buffers = m_system->swapchain().images().size();
+    uint32_t num_buffers = static_cast<uint32_t>(m_system->swapchain().images().size());
     m_draw_commands.resize(num_buffers, VK_NULL_HANDLE);
 
     VkCommandBufferAllocateInfo cb_ai;
@@ -200,6 +200,6 @@ void gfx::Commands::initCommandBuffers() {
 void gfx::Commands::cleanupCommandBuffers() {
     VkDevice device = m_system->device();
     if (device != VK_NULL_HANDLE && m_pool != VK_NULL_HANDLE && m_draw_commands.size() > 0) {
-        vkFreeCommandBuffers(device, m_pool, m_draw_commands.size(), m_draw_commands.data());
+        vkFreeCommandBuffers(device, m_pool, static_cast<uint32_t>(m_draw_commands.size()), m_draw_commands.data());
     }
 }

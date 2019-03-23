@@ -47,7 +47,7 @@ void Application::init() {
     Terrain terrain{2.0, 5, curved_noise};
     m_gfx.setTerrainGeometry(terrain.vertices(), terrain.elements());
 
-    Ocean ocean{1.97, 5};
+    Ocean ocean{1.97f, 5};
     m_gfx.setOceanGeometry(ocean.vertices(), ocean.indices());
 
     gfx::ViewProjectionTransform vp_xform{};
@@ -65,7 +65,7 @@ void Application::init() {
     m_gfx.setViewProjectionTransform(vp_xform);
     m_gfx.enableLight(0, { -1.0, -1.0, -1.0 });
 
-    uint32_t num_images = m_gfx.swapchain().images().size();
+    uint32_t num_images = static_cast<uint32_t>(m_gfx.swapchain().images().size());
     for (uint32_t i = 0; i < num_images; ++i) {
         m_gfx.writeViewProjectionTransform(i);
         m_gfx.writeLightList(i);
@@ -98,7 +98,7 @@ void Application::run() {
             glfwPollEvents();
         }
         m_gfx.waitIdle();
-    } catch (std::runtime_error &ex) {
+    } catch (std::runtime_error&) {
         m_gfx.waitIdle();
         throw;
     }

@@ -49,7 +49,7 @@ void gfx::Uniforms::initDescriptorPool() {
     }
 
     VkDevice device = m_system->device();
-    uint32_t num_images = m_system->swapchain().images().size();
+    uint32_t num_images = static_cast<uint32_t>(m_system->swapchain().images().size());
     uint32_t num_descriptors = 4 * num_images;
 
     std::array<VkDescriptorPoolSize, 1> pool_sizes{};
@@ -60,7 +60,7 @@ void gfx::Uniforms::initDescriptorPool() {
     dp_ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     dp_ci.pNext = nullptr;
     dp_ci.flags = 0;
-    dp_ci.poolSizeCount = pool_sizes.size();
+    dp_ci.poolSizeCount = static_cast<uint32_t>(pool_sizes.size());
     dp_ci.pPoolSizes = pool_sizes.data();
     dp_ci.maxSets = num_descriptors;
 
@@ -167,7 +167,7 @@ void gfx::SceneUniformSet::initDescriptorSetLayout(System *gfx) {
     dsl_ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     dsl_ci.pNext = nullptr;
     dsl_ci.flags = 0;
-    dsl_ci.bindingCount = bindings.size();
+    dsl_ci.bindingCount = static_cast<uint32_t>(bindings.size());
     dsl_ci.pBindings = bindings.data();
 
     VkResult rslt = vkCreateDescriptorSetLayout(device, &dsl_ci, nullptr, &c_descriptor_set_layout);
@@ -253,7 +253,7 @@ void gfx::SceneUniformSet::initUniformBuffers() {
     VkDevice device = gfx->device();
 
     if (m_view_projection_buffers.empty()) {
-        uint32_t num_buffers = gfx->swapchain().imageViews().size();
+        uint32_t num_buffers = static_cast<uint32_t>(gfx->swapchain().imageViews().size());
         VkDeviceSize buffer_size = sizeof(ViewProjectionTransform);
         m_view_projection_buffers.resize(num_buffers, VK_NULL_HANDLE);
         m_view_projection_buffer_memories.resize(num_buffers, VK_NULL_HANDLE);
@@ -268,7 +268,7 @@ void gfx::SceneUniformSet::initUniformBuffers() {
     }
 
     if (m_light_list_buffers.empty()) {
-        uint32_t num_buffers = gfx->swapchain().imageViews().size();
+        uint32_t num_buffers = static_cast<uint32_t>(gfx->swapchain().imageViews().size());
         VkDeviceSize buffer_size = sizeof(m_lights);
         m_light_list_buffers.resize(num_buffers, VK_NULL_HANDLE);
         m_light_list_buffer_memories.resize(num_buffers, VK_NULL_HANDLE);
@@ -325,7 +325,7 @@ void gfx::SceneUniformSet::initDescriptorSets() {
 
     System *gfx = m_uniforms->system();
     VkDevice device = gfx->device();
-    uint32_t num_images = gfx->swapchain().images().size();
+    uint32_t num_images = static_cast<uint32_t>(gfx->swapchain().images().size());
 
     std::vector<VkDescriptorSetLayout> layouts{num_images, c_descriptor_set_layout};
     m_descriptor_sets.resize(num_images, VK_NULL_HANDLE);
@@ -379,7 +379,7 @@ void gfx::SceneUniformSet::initDescriptorSets() {
         dsc_writes[1].pImageInfo = nullptr;
         dsc_writes[1].pTexelBufferView = nullptr;
 
-        vkUpdateDescriptorSets(device, dsc_writes.size(), dsc_writes.data(), 0, nullptr);
+        vkUpdateDescriptorSets(device, static_cast<uint32_t>(dsc_writes.size()), dsc_writes.data(), 0, nullptr);
     }
 }
 
@@ -424,7 +424,7 @@ void gfx::ModelUniformSet::initDescriptorSetLayout(System *gfx) {
     dsl_ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     dsl_ci.pNext = nullptr;
     dsl_ci.flags = 0;
-    dsl_ci.bindingCount = bindings.size();
+    dsl_ci.bindingCount = static_cast<uint32_t>(bindings.size());
     dsl_ci.pBindings = bindings.data();
 
     VkResult rslt = vkCreateDescriptorSetLayout(device, &dsl_ci, nullptr, &c_descriptor_set_layout);
@@ -476,7 +476,7 @@ void gfx::ModelUniformSet::initUniformBuffers() {
     VkDevice device = gfx->device();
 
     if (m_model_buffers.empty()) {
-        uint32_t num_buffers = gfx->swapchain().imageViews().size();
+        uint32_t num_buffers = static_cast<uint32_t>(gfx->swapchain().imageViews().size());
         VkDeviceSize buffer_size = sizeof(m_model_transform);
         m_model_buffers.resize(num_buffers, VK_NULL_HANDLE);
         m_model_buffer_memories.resize(num_buffers, VK_NULL_HANDLE);
@@ -519,7 +519,7 @@ void gfx::ModelUniformSet::initDescriptorSets() {
 
     System *gfx = m_uniforms->system();
     VkDevice device = gfx->device();
-    uint32_t num_images = gfx->swapchain().images().size();
+    uint32_t num_images = static_cast<uint32_t>(gfx->swapchain().images().size());
 
     std::vector<VkDescriptorSetLayout> layouts{num_images, c_descriptor_set_layout};
     m_descriptor_sets.resize(num_images, VK_NULL_HANDLE);
@@ -556,6 +556,6 @@ void gfx::ModelUniformSet::initDescriptorSets() {
         dsc_writes[0].pImageInfo = nullptr;
         dsc_writes[0].pTexelBufferView = nullptr;
 
-        vkUpdateDescriptorSets(device, dsc_writes.size(), dsc_writes.data(), 0, nullptr);
+        vkUpdateDescriptorSets(device, static_cast<uint32_t>(dsc_writes.size()), dsc_writes.data(), 0, nullptr);
     }
 }

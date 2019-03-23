@@ -54,7 +54,7 @@ void gfx::TerrainPipeline::setGeometry(const std::vector<TerrainVertex> &verts, 
         indices.data(), indices.size() * sizeof(uint32_t),
         VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
         m_index_buffer, m_index_buffer_memory);
-    m_num_indices = indices.size();
+    m_num_indices = static_cast<uint32_t>(indices.size());
 }
 
 void gfx::TerrainPipeline::setTransform(const glm::mat4x4 &xform) {
