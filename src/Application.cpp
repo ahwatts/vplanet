@@ -3,8 +3,6 @@
 #include <chrono>
 #include <iostream>
 
-#include "vulkan.h"
-
 #include "glm_defines.h"
 #include <glm/vec3.hpp>
 #include <glm/mat4x4.hpp>
