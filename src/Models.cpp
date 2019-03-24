@@ -94,6 +94,65 @@ PositionsAndElements icosphere(float radius, int refinements) {
     return rv;
 }
 
+std::vector<glm::vec3> computeNormals(const PositionsAndElements &pne) {
+    std::vector<glm::vec3> normals{pne.positions.size()};
+
+    // Build an adjacency map of vertices to triangles (as base
+    // element indices).
+    std::map<uint32_t, std::vector<uint32_t> > adj_map;
+    for (uint32_t tid = 0; tid < pne.elements.size(); tid += 3) {
+        adj_map[pne.elements[tid+0]].push_back(tid);
+        adj_map[pne.elements[tid+1]].push_back(tid);
+        adj_map[pne.elements[tid+2]].push_back(tid);
+    }
+
+    // Compute the normal for each vertex.
+    for (uint32_t vid = 0; vid < pne.positions.size(); ++vid) {
+        const glm::vec3 &vp = pne.positions[vid];
+
+        // Compute the vertex normal as a weighted average of the
+        // facet normals for the triangles adjacent to this vertex.
+        glm::vec3 vertex_normal{0.0f, 0.0f, 0.0f};
+
+        for (auto tid : adj_map[vid]) {
+            unsigned int vid1 = pne.elements[tid+0];
+            unsigned int vid2 = pne.elements[tid+1];
+            unsigned int vid3 = pne.elements[tid+2];
+            const glm::vec3 &v1 = pne.positions[vid1];
+            const glm::vec3 &v2 = pne.positions[vid2];
+            const glm::vec3 &v3 = pne.positions[vid3];
+            glm::vec3 cross = glm::cross(v2 - v1, v3 - v1);
+            glm::vec3 face_normal = glm::normalize(cross);
+
+            // Weight by the area (the mangitude of the cross product
+            // is twice the area of the triangle). The extra factor of
+            // 2 is unimportant, since we're normalizing the result.
+            float area = glm::length(cross);
+
+            // Also weight by the angle of the triangle at this
+            // vertex.
+            glm::vec3 s1, s2;
+            if (vid == vid1) {
+                s1 = v1 - v2;
+                s2 = v1 - v3;
+            } else if (vid == vid2) {
+                s1 = v2 - v1;
+                s2 = v2 - v3;
+            } else if (vid == vid3) {
+                s1 = v3 - v1;
+                s2 = v3 - v2;
+            }
+            float angle = std::acos(glm::dot(s1, s2) / glm::length(s1) / glm::length(s2));
+
+            vertex_normal += face_normal * area * angle;
+        }
+
+        normals[vid] = glm::normalize(vertex_normal);
+    }
+
+    return normals;
+}
+
 extern const double PHI = (1.0 + std::sqrt(5.0)) / 2.0;
 
 extern const double ICOSAHEDRON_VERTICES[12][3] = {

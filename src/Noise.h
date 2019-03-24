@@ -18,7 +18,7 @@ public:
     NoiseFunction();
     virtual ~NoiseFunction();
 
-    // double operator()(double x) const;
+    // virtual double operator()(double x) const = 0;
     virtual double operator()(double x, double y) const = 0;
     virtual double operator()(double x, double y, double z) const = 0;
 };
@@ -32,7 +32,7 @@ public:
     void setScales(double x, double y);
     void setScales(double x, double y, double z);
 
-    // double operator()(double x) const;
+    // virtual double operator()(double x) const;
     virtual double operator()(double x, double y) const;
     virtual double operator()(double x, double y, double z) const;
 
@@ -52,6 +52,7 @@ public:
     Octave(const NoiseFunction &base, int octaves, double persistence);
     virtual ~Octave();
 
+    // virtual double operator()(double x) const;
     virtual double operator()(double x, double y) const;
     virtual double operator()(double x, double y, double z) const;
 
@@ -66,6 +67,7 @@ public:
     Curve(const NoiseFunction &base, const CubicSpline &curve);
     virtual ~Curve();
 
+    // virtual double operator()(double x) const;
     virtual double operator()(double x, double y) const;
     virtual double operator()(double x, double y, double z) const;
 

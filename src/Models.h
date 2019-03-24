@@ -15,6 +15,8 @@ struct PositionsAndElements {
 PositionsAndElements icosahedron();
 PositionsAndElements icosphere(float radius, int refinements);
 
+std::vector<glm::vec3> computeNormals(const PositionsAndElements &pne);
+
 extern const double ICOSAHEDRON_VERTICES[12][3];
 extern const unsigned int ICOSAHEDRON_VERTEX_COUNT;
 extern const unsigned int ICOSAHEDRON_ELEMS[60];

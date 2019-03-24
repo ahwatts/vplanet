@@ -31,10 +31,6 @@ public:
     const std::vector<uint32_t>& elements() const;
 
 private:
-    void loadIcosphere(float radius, int refinements);
-    void varyPositions(const NoiseFunction &noise);
-    void computeNormals();
-
     std::vector<TerrainVertex> m_vertices;
     std::vector<uint32_t> m_indices;
 };
