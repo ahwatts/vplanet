@@ -837,7 +837,7 @@ std::vector<const char*> requiredInstanceLayers(bool debug) {
     std::vector<const char*> required_layers;
 
     if (debug) {
-        required_layers.push_back("VK_LAYER_LUNARG_standard_validation");
+        required_layers.push_back("VK_LAYER_KHRONOS_validation");
     }
 
     return required_layers;
