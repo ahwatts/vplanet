@@ -73,5 +73,5 @@ target_compile_features(vplanet PUBLIC cxx_std_14)
 target_include_directories(vplanet PUBLIC vendor/embed-resource)
 target_link_libraries(vplanet PUBLIC
     glfw
-    glm
+    glm::glm
     Vulkan::Vulkan)
