@@ -40,6 +40,15 @@ find_package(Vulkan REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(glm REQUIRED)
 
+# GLM changed their library link target in a way that we can't really detect.
+if(TARGET glm::glm)
+  set(glm_library "glm::glm")
+elseif(TARGET glm)
+  set(glm_library "glm")
+else()
+  message(FATAL_ERROR "No glm link target found")
+endif()
+
 add_subdirectory(vendor/embed-resource)
 
 compile_spirv(SPIRV_SHADERS
@@ -73,5 +82,5 @@ target_compile_features(vplanet PUBLIC cxx_std_14)
 target_include_directories(vplanet PUBLIC vendor/embed-resource)
 target_link_libraries(vplanet PUBLIC
     glfw
-    glm::glm
+    ${glm_library}
     Vulkan::Vulkan)
