@@ -623,12 +623,12 @@ void gfx::System::initDevice(bool debug) {
 
     if (chosen_device.graphics_queue_family != chosen_device.present_queue_family) {
         queue_cis.emplace_back(VkDeviceQueueCreateInfo{});
-        queue_cis[0].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        queue_cis[0].pNext = nullptr;
-        queue_cis[0].flags = 0;
-        queue_cis[0].queueFamilyIndex = chosen_device.present_queue_family;
-        queue_cis[0].queueCount = 1;
-        queue_cis[0].pQueuePriorities = &queue_priority;
+        queue_cis[1].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queue_cis[1].pNext = nullptr;
+        queue_cis[1].flags = 0;
+        queue_cis[1].queueFamilyIndex = chosen_device.present_queue_family;
+        queue_cis[1].queueCount = 1;
+        queue_cis[1].pQueuePriorities = &queue_priority;
     }
 
     VkPhysicalDeviceFeatures features{};
