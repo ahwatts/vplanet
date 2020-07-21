@@ -48,7 +48,7 @@ Ocean::Ocean(float radius, int refinements)
 {
     std::random_device seed;
     std::default_random_engine eng{seed()};
-    std::uniform_real_distribution<float> dist{0.995, 1.005f};
+    std::uniform_real_distribution<float> dist{0.995f, 1.005f};
     PositionsAndElements pne = icosphere(radius, refinements);
 
     for (size_t i = 0; i < pne.positions.size(); ++i) {
