@@ -1,10 +1,6 @@
 # cmake_minimum_required(VERSION 3.5)
 # project(EmbedResource)
 
-# if(WIN32 AND CMAKE_COMPILER_IS_GNUCXX)
-#     set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH};../../../deps/boost-msys")
-# endif()
-
 function(embed_resources out_var)
   set(result)
   foreach(in_f ${ARGN})
