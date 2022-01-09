@@ -2,4 +2,5 @@
 /build*
 /target
 /.vscode
+/.clang_complete
 CMakeUserPresets.json
