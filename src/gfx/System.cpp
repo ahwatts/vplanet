@@ -479,7 +479,11 @@ void gfx::System::initInstance(bool debug) {
     VkInstanceCreateInfo inst_ci{};
     inst_ci.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     inst_ci.pNext = nullptr;
+#ifdef __APPLE__
+    inst_ci.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+#else
     inst_ci.flags = 0;
+#endif
     inst_ci.pApplicationInfo = &app_info;
     inst_ci.enabledLayerCount = static_cast<uint32_t>(wanted_layers.size());
     inst_ci.ppEnabledLayerNames = wanted_layers.empty() ? nullptr : wanted_layers.data();
@@ -636,6 +640,17 @@ void gfx::System::initDevice(bool debug) {
 
     std::vector<const char*> extensions = requiredDeviceExtensions(debug);
     std::vector<const char*> layers = requiredDeviceLayers(debug);
+
+    uint32_t num_available_extensions;
+    vkEnumerateDeviceExtensionProperties(chosen_device.device, nullptr, &num_available_extensions, nullptr);
+    std::vector<VkExtensionProperties> available_extensions{num_available_extensions};
+    vkEnumerateDeviceExtensionProperties(chosen_device.device, nullptr, &num_available_extensions, available_extensions.data());
+
+    for (auto extension : available_extensions) {
+        if (strcmp(extension.extensionName, "VK_KHR_portability_subset") == 0) {
+            extensions.push_back("VK_KHR_portability_subset");
+        }
+    }
 
     VkDeviceCreateInfo dev_ci;
     dev_ci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -829,6 +844,11 @@ std::vector<const char*> requiredInstanceExtensions(bool debug) {
     if (debug) {
         required_extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
     }
+
+#ifdef __APPLE__
+    required_extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+    required_extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+#endif
 
     return required_extensions;
 }
