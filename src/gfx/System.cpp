@@ -1,6 +1,5 @@
 // -*- mode: c++; c-basic-offset: 4; encoding: utf-8; -*-
 
-#include <cstring>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -647,7 +646,7 @@ void gfx::System::initDevice(bool debug) {
     vkEnumerateDeviceExtensionProperties(chosen_device.device, nullptr, &num_available_extensions, available_extensions.data());
 
     for (auto extension : available_extensions) {
-        if (strcmp(extension.extensionName, "VK_KHR_portability_subset") == 0) {
+        if (std::strcmp(extension.extensionName, "VK_KHR_portability_subset") == 0) {
             extensions.push_back("VK_KHR_portability_subset");
         }
     }
