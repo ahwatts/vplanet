@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.22.0)
+cmake_minimum_required(VERSION 3.30.0)
 project(vplanet)
 
 function(compile_spirv out_var)
