@@ -38,6 +38,7 @@ gfx::System::System(GLFWwindow *window)
       m_present_queue_family{UINT32_MAX},
       m_image_available_semaphore{VK_NULL_HANDLE},
       m_render_finished_semaphore{VK_NULL_HANDLE},
+      m_in_flight_fence{VK_NULL_HANDLE},
       m_commands{this},
       m_swapchain{this},
       m_depth_buffer{this},
@@ -201,7 +202,14 @@ void gfx::System::recordCommandBuffers() {
 
 uint32_t gfx::System::startFrame() {
     uint32_t image_index = UINT32_MAX;
-    VkResult rslt = vkAcquireNextImageKHR(
+
+    VkResult rslt = vkWaitForFences(m_device, 1, &m_in_flight_fence, VK_TRUE, UINT64_MAX);
+    if (rslt != VK_SUCCESS) {
+        std::cerr << "Failed to wait for in-flight fence to clear: " << rslt << std::endl;
+    }
+    vkResetFences(m_device, 1, &m_in_flight_fence);
+
+    rslt = vkAcquireNextImageKHR(
         m_device,
         m_swapchain.swapchain(),
         UINT64_MAX,
@@ -244,7 +252,7 @@ void gfx::System::drawFrame(uint32_t image_index) {
     si.signalSemaphoreCount = static_cast<uint32_t>(signal_semaphores.size());
     si.pSignalSemaphores = signal_semaphores.data();
 
-    VkResult rslt = vkQueueSubmit(m_commands.graphicsQueue(), 1, &si, VK_NULL_HANDLE);
+    VkResult rslt = vkQueueSubmit(m_commands.graphicsQueue(), 1, &si, m_in_flight_fence);
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
         msg << "Unable to submit command buffer to graphics queue. Error code: " << rslt;
@@ -701,6 +709,14 @@ void gfx::System::initSemaphores() {
         sem_ci.flags = 0;
         vkCreateSemaphore(m_device, &sem_ci, nullptr, &m_render_finished_semaphore);
     }
+
+    if (m_in_flight_fence == VK_NULL_HANDLE) {
+        VkFenceCreateInfo fence_ci;
+        fence_ci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        fence_ci.pNext = nullptr;
+        fence_ci.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+        vkCreateFence(m_device, &fence_ci, nullptr, &m_in_flight_fence);
+    }
 }
 
 void gfx::System::cleanupSemaphores() {
@@ -713,6 +729,11 @@ void gfx::System::cleanupSemaphores() {
         if (m_render_finished_semaphore != VK_NULL_HANDLE) {
             vkDestroySemaphore(m_device, m_render_finished_semaphore, nullptr);
             m_render_finished_semaphore = VK_NULL_HANDLE;
+        }
+
+        if (m_in_flight_fence != VK_NULL_HANDLE) {
+            vkDestroyFence(m_device, m_in_flight_fence, nullptr);
+            m_in_flight_fence = VK_NULL_HANDLE;
         }
     }
 }

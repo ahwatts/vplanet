@@ -111,6 +111,7 @@ namespace gfx {
         uint32_t m_graphics_queue_family, m_present_queue_family;
         VkSemaphore m_image_available_semaphore;
         VkSemaphore m_render_finished_semaphore;
+        VkFence m_in_flight_fence;
 
         Commands m_commands;
         Swapchain m_swapchain;
