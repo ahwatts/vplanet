@@ -24,7 +24,6 @@ endfunction()
 # set(Boost_USE_STATIC_LIBS "On")
 find_package(Boost REQUIRED COMPONENTS filesystem)
 find_package(Vulkan REQUIRED)
-find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(glm REQUIRED)
 
@@ -38,6 +37,7 @@ else()
 endif()
 
 add_subdirectory(vendor/embed-resource)
+add_subdirectory(vendor/VulkanMemoryAllocator-3.3.0)
 
 compile_spirv(SPIRV_SHADERS
     src/gfx/shaders/ocean.vert
@@ -74,3 +74,7 @@ target_link_libraries(vplanet PUBLIC
     ${glm_library}
     Vulkan::Vulkan
     GPUOpen::VulkanMemoryAllocator)
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  set_source_files_properties(src/VmaUsage.cpp PROPERTIES COMPILE_OPTIONS "-w")
+endif()
