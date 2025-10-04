@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "../vulkan.h"
+#include "../VmaUsage.h"
 
 #include "../Terrain.h"
 #include "Commands.h"
@@ -31,6 +32,8 @@ namespace gfx {
         VkSurfaceKHR surface() const;
         uint32_t graphicsQueueFamily() const;
         uint32_t presentQueueFamily() const;
+
+        VmaAllocator allocator() const;
 
         const Commands& commands() const;
         const DepthBuffer& depthBuffer() const;
@@ -80,6 +83,9 @@ namespace gfx {
         void initDevice(bool debug);
         void cleanupDevice();
 
+        void initAllocator();
+        void cleanupAllocator();
+
         void initSemaphores();
         void cleanupSemaphores();
 
@@ -112,6 +118,8 @@ namespace gfx {
         VkSemaphore m_image_available_semaphore;
         VkSemaphore m_render_finished_semaphore;
         VkFence m_in_flight_fence;
+
+        VmaAllocator m_allocator;
 
         Commands m_commands;
         Swapchain m_swapchain;

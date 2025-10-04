@@ -39,6 +39,7 @@ gfx::System::System(GLFWwindow *window)
       m_image_available_semaphore{VK_NULL_HANDLE},
       m_render_finished_semaphore{VK_NULL_HANDLE},
       m_in_flight_fence{VK_NULL_HANDLE},
+      m_allocator{nullptr},
       m_commands{this},
       m_swapchain{this},
       m_depth_buffer{this},
@@ -59,6 +60,7 @@ void gfx::System::init(bool debug) {
 
     initSurface();
     initDevice(debug);
+    initAllocator();
     initSemaphores();
     m_swapchain.init();
     m_commands.init();
@@ -74,6 +76,7 @@ void gfx::System::dispose() {
     m_commands.dispose();
     m_swapchain.dispose();
     cleanupSemaphores();
+    cleanupAllocator();
     cleanupDevice();
     cleanupSurface();
     cleanupDebugCallback();
@@ -106,6 +109,10 @@ uint32_t gfx::System::graphicsQueueFamily() const {
 
 uint32_t gfx::System::presentQueueFamily() const {
     return m_present_queue_family;
+}
+
+VmaAllocator gfx::System::allocator() const {
+    return m_allocator;
 }
 
 const gfx::Commands& gfx::System::commands() const {
@@ -690,6 +697,35 @@ void gfx::System::cleanupDevice() {
         m_physical_device = VK_NULL_HANDLE;
         m_graphics_queue_family = UINT32_MAX;
         m_present_queue_family = UINT32_MAX;
+    }
+}
+
+void gfx::System::initAllocator() {
+    if (m_allocator == nullptr) {
+        VmaAllocatorCreateInfo alloc_ci;
+        alloc_ci.flags = 0;
+        alloc_ci.device = m_device;
+        alloc_ci.preferredLargeHeapBlockSize = 0; // Use default: 256 MiB
+        alloc_ci.pAllocationCallbacks = nullptr;
+        alloc_ci.pDeviceMemoryCallbacks = nullptr;
+        alloc_ci.pHeapSizeLimit = nullptr;
+        alloc_ci.pVulkanFunctions = nullptr;
+        alloc_ci.instance = m_instance;
+        alloc_ci.vulkanApiVersion = VK_API_VERSION_1_0;
+        alloc_ci.pTypeExternalMemoryHandleTypes = nullptr;
+        VkResult rslt = vmaCreateAllocator(&alloc_ci, &m_allocator);
+        if (rslt != VK_SUCCESS) {
+            std::stringstream msg;
+            msg << "Unable to create memory allocator. Error code: " << rslt;
+            throw std::runtime_error{msg.str()};
+        }
+    }
+}
+
+void gfx::System::cleanupAllocator() {
+    if (m_allocator != nullptr) {
+        vmaDestroyAllocator(m_allocator);
+        m_allocator = nullptr;
     }
 }
 

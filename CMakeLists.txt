@@ -24,6 +24,7 @@ endfunction()
 # set(Boost_USE_STATIC_LIBS "On")
 find_package(Boost REQUIRED COMPONENTS filesystem)
 find_package(Vulkan REQUIRED)
+find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(glm REQUIRED)
 
@@ -63,6 +64,7 @@ add_executable(vplanet
     src/Noise.cpp
     src/Ocean.cpp
     src/Terrain.cpp
+    src/VmaUsage.cpp
     src/vplanet.cpp
     ${EMBEDDED_SHADERS})
 target_compile_features(vplanet PUBLIC cxx_std_14)
@@ -70,4 +72,5 @@ target_include_directories(vplanet PUBLIC vendor/embed-resource)
 target_link_libraries(vplanet PUBLIC
     glfw
     ${glm_library}
-    Vulkan::Vulkan)
+    Vulkan::Vulkan
+    GPUOpen::VulkanMemoryAllocator)
