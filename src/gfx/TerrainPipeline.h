@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "../vulkan.h"
+#include "../VmaUsage.h"
 
 #include "../glm_defines.h"
 #include <glm/mat4x4.hpp>
@@ -44,7 +45,7 @@ namespace gfx {
         VkShaderModule m_vertex_shader, m_fragment_shader;
         uint32_t m_num_indices;
         VkBuffer m_vertex_buffer, m_index_buffer;
-        VkDeviceMemory m_vertex_buffer_memory, m_index_buffer_memory;
+        VmaAllocation m_vertex_buffer_allocation, m_index_buffer_allocation;
     };
 }
 

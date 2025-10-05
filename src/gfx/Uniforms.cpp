@@ -116,9 +116,9 @@ gfx::SceneUniformSet::SceneUniformSet(Uniforms *uniforms)
       m_view_projection{},
       m_lights{},
       m_view_projection_buffers{},
-      m_view_projection_buffer_memories{},
+      m_view_projection_buffer_allocations{},
       m_light_list_buffers{},
-      m_light_list_buffer_memories{}
+      m_light_list_buffer_allocations{}
 {
     m_view_projection.projection = glm::mat4x4(1.0);
     m_view_projection.view = glm::mat4x4(1.0);
@@ -195,23 +195,19 @@ void gfx::SceneUniformSet::setTransforms(const ViewProjectionTransform &xform) {
 }
 
 void gfx::SceneUniformSet::updateViewProjectionBuffer(uint32_t buffer_index) {
-    VkDevice device = m_uniforms->system()->device();
-    void *data;
+    VmaAllocator allocator = m_uniforms->system()->allocator();
 
-    VkResult rslt = vkMapMemory(
-        device,
-        m_view_projection_buffer_memories[buffer_index],
-        0, sizeof(ViewProjectionTransform),
-        0, &data);
+    VkResult rslt = vmaCopyMemoryToAllocation(
+        allocator,
+        &m_view_projection,
+        m_view_projection_buffer_allocations[buffer_index],
+        0, sizeof(ViewProjectionTransform));
 
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
-        msg << "Unable to map uniform buffer memory. Error code: " << rslt;
+        msg << "Unable to update view / projection buffer. Error code: " << rslt;
         throw std::runtime_error(msg.str());
     }
-
-    std::memcpy(data, &m_view_projection, sizeof(ViewProjectionTransform));
-    vkUnmapMemory(device, m_view_projection_buffer_memories[buffer_index]);
 }
 
 void gfx::SceneUniformSet::enableLight(uint32_t index, const glm::vec3 &direction) {
@@ -229,23 +225,19 @@ void gfx::SceneUniformSet::disableLight(uint32_t index) {
 }
 
 void gfx::SceneUniformSet::updateLightListBuffer(uint32_t buffer_index) {
-    VkDevice device = m_uniforms->system()->device();
-    void *data;
+    VmaAllocator allocator = m_uniforms->system()->allocator();
 
-    VkResult rslt = vkMapMemory(
-        device,
-        m_light_list_buffer_memories[buffer_index],
-        0, sizeof(m_lights),
-        0, &data);
+    VkResult rslt = vmaCopyMemoryToAllocation(
+        allocator,
+        &m_lights,
+        m_light_list_buffer_allocations[buffer_index],
+        0, sizeof(m_lights));
 
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
-        msg << "Unable to map light list buffer memory. Error code: " << rslt;
+        msg << "Unable to update light list buffer. Error code: " << rslt;
         throw std::runtime_error(msg.str());
     }
-
-    std::memcpy(data, m_lights, sizeof(m_lights));
-    vkUnmapMemory(device, m_light_list_buffer_memories[buffer_index]);
 }
 
 void gfx::SceneUniformSet::initUniformBuffers() {
@@ -256,14 +248,13 @@ void gfx::SceneUniformSet::initUniformBuffers() {
         uint32_t num_buffers = static_cast<uint32_t>(gfx->swapchain().imageViews().size());
         VkDeviceSize buffer_size = sizeof(ViewProjectionTransform);
         m_view_projection_buffers.resize(num_buffers, VK_NULL_HANDLE);
-        m_view_projection_buffer_memories.resize(num_buffers, VK_NULL_HANDLE);
+        m_view_projection_buffer_allocations.resize(num_buffers, VK_NULL_HANDLE);
         for (uint32_t i = 0; i < num_buffers; ++i) {
             gfx->createBuffer(
                 buffer_size,
                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                 m_view_projection_buffers[i],
-                m_view_projection_buffer_memories[i]);
+                m_view_projection_buffer_allocations[i]);
         }
     }
 
@@ -271,51 +262,28 @@ void gfx::SceneUniformSet::initUniformBuffers() {
         uint32_t num_buffers = static_cast<uint32_t>(gfx->swapchain().imageViews().size());
         VkDeviceSize buffer_size = sizeof(m_lights);
         m_light_list_buffers.resize(num_buffers, VK_NULL_HANDLE);
-        m_light_list_buffer_memories.resize(num_buffers, VK_NULL_HANDLE);
+        m_light_list_buffer_allocations.resize(num_buffers, VK_NULL_HANDLE);
         for (uint32_t i = 0; i < num_buffers; ++i) {
             gfx->createBuffer(
                 buffer_size,
                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                 m_light_list_buffers[i],
-                m_light_list_buffer_memories[i]);
+                m_light_list_buffer_allocations[i]);
         }
     }
 }
 
 void gfx::SceneUniformSet::cleanupUniformBuffers() {
-    VkDevice device = m_uniforms->system()->device();
+    System *gfx = m_uniforms->system();
 
-    if (device != VK_NULL_HANDLE) {
-        for (auto buffer : m_view_projection_buffers) {
-            if (buffer != VK_NULL_HANDLE) {
-                vkDestroyBuffer(device, buffer, nullptr);
-            }
-        }
-
-        for (auto buffer : m_light_list_buffers) {
-            if (buffer != VK_NULL_HANDLE) {
-                vkDestroyBuffer(device, buffer, nullptr);
-            }
-        }
-
-        for (auto memory : m_view_projection_buffer_memories) {
-            if (memory != VK_NULL_HANDLE) {
-                vkFreeMemory(device, memory, nullptr);
-            }
-        }
-
-        for (auto memory : m_light_list_buffer_memories) {
-            if (memory != VK_NULL_HANDLE) {
-                vkFreeMemory(device, memory, nullptr);
-            }
-        }
+    for (int i = 0; i < m_view_projection_buffers.size(); ++i) {
+        gfx->destroyBuffer(m_view_projection_buffers[i], m_view_projection_buffer_allocations[i]);
     }
 
     m_view_projection_buffers.clear();
-    m_view_projection_buffer_memories.clear();
+    m_view_projection_buffer_allocations.clear();
     m_light_list_buffers.clear();
-    m_light_list_buffer_memories.clear();
+    m_light_list_buffer_allocations.clear();
 }
 
 void gfx::SceneUniformSet::initDescriptorSets() {
@@ -389,7 +357,7 @@ gfx::ModelUniformSet::ModelUniformSet(Uniforms *uniforms)
     : UniformSet(uniforms),
       m_model_transform{1.0},
       m_model_buffers{},
-      m_model_buffer_memories{}
+      m_model_buffer_allocations{}
 {}
 
 gfx::ModelUniformSet::~ModelUniformSet() {
@@ -452,23 +420,19 @@ void gfx::ModelUniformSet::setTransform(const glm::mat4x4 &model) {
 }
 
 void gfx::ModelUniformSet::updateModelBuffer(uint32_t buffer_index) {
-    VkDevice device = m_uniforms->system()->device();
-    void *data;
+    VmaAllocator allocator = m_uniforms->system()->allocator();
 
-    VkResult rslt = vkMapMemory(
-        device,
-        m_model_buffer_memories[buffer_index],
-        0, sizeof(m_model_transform),
-        0, &data);
+    VkResult rslt = vmaCopyMemoryToAllocation(
+        allocator,
+        glm::value_ptr(m_model_transform),
+        m_model_buffer_allocations[buffer_index],
+        0, sizeof(m_model_transform));
 
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
-        msg << "Unable to map light list buffer memory. Error code: " << rslt;
+        msg << "Unable to update light list buffer. Error code: " << rslt;
         throw std::runtime_error(msg.str());
     }
-
-    std::memcpy(data, glm::value_ptr(m_model_transform), sizeof(m_model_transform));
-    vkUnmapMemory(device, m_model_buffer_memories[buffer_index]);
 }
 
 void gfx::ModelUniformSet::initUniformBuffers() {
@@ -479,37 +443,26 @@ void gfx::ModelUniformSet::initUniformBuffers() {
         uint32_t num_buffers = static_cast<uint32_t>(gfx->swapchain().imageViews().size());
         VkDeviceSize buffer_size = sizeof(m_model_transform);
         m_model_buffers.resize(num_buffers, VK_NULL_HANDLE);
-        m_model_buffer_memories.resize(num_buffers, VK_NULL_HANDLE);
+        m_model_buffer_allocations.resize(num_buffers, nullptr);
         for (uint32_t i = 0; i < num_buffers; ++i) {
             gfx->createBuffer(
                 buffer_size,
                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                 m_model_buffers[i],
-                m_model_buffer_memories[i]);
+                m_model_buffer_allocations[i]);
         }
     }
 }
 
 void gfx::ModelUniformSet::cleanupUniformBuffers() {
-    VkDevice device = m_uniforms->system()->device();
+    System *gfx = m_uniforms->system();
 
-    if (device != VK_NULL_HANDLE) {
-        for (auto buffer : m_model_buffers) {
-            if (buffer != VK_NULL_HANDLE) {
-                vkDestroyBuffer(device, buffer, nullptr);
-            }
-        }
-
-        for (auto memory : m_model_buffer_memories) {
-            if (memory != VK_NULL_HANDLE) {
-                vkFreeMemory(device, memory, nullptr);
-            }
-        }
+    for (int i = 0; i < m_model_buffers.size(); ++i) {
+        gfx->destroyBuffer(m_model_buffers[i], m_model_buffer_allocations[i]);
     }
 
     m_model_buffers.clear();
-    m_model_buffer_memories.clear();
+    m_model_buffer_allocations.clear();
 }
 
 void gfx::ModelUniformSet::initDescriptorSets() {

@@ -4,6 +4,7 @@
 #define _VPLANET_GFX_OCEAN_PIPELINE_H_
 
 #include "../vulkan.h"
+#include "../VmaUsage.h"
 
 #include "../Ocean.h"
 #include "Pipeline.h"
@@ -38,7 +39,7 @@ namespace gfx {
         VkShaderModule m_vertex_shader, m_fragment_shader;
         uint32_t m_num_indices;
         VkBuffer m_vertex_buffer, m_index_buffer;
-        VkDeviceMemory m_vertex_buffer_memory, m_index_buffer_memory;
+        VmaAllocation m_vertex_buffer_allocation, m_index_buffer_allocation;
     };
 }
 

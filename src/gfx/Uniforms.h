@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "../vulkan.h"
+#include "../VmaUsage.h"
 
 #include "../glm_defines.h"
 #include <glm/vec3.hpp>
@@ -92,9 +93,9 @@ namespace gfx {
         ViewProjectionTransform m_view_projection;
         LightInfo m_lights[MAX_LIGHTS];
         std::vector<VkBuffer> m_view_projection_buffers;
-        std::vector<VkDeviceMemory> m_view_projection_buffer_memories;
+        std::vector<VmaAllocation> m_view_projection_buffer_allocations;
         std::vector<VkBuffer> m_light_list_buffers;
-        std::vector<VkDeviceMemory> m_light_list_buffer_memories;
+        std::vector<VmaAllocation> m_light_list_buffer_allocations;
     };
 
     class ModelUniformSet : public UniformSet {
@@ -121,7 +122,7 @@ namespace gfx {
         static VkDescriptorSetLayout c_descriptor_set_layout;
         glm::mat4x4 m_model_transform;
         std::vector<VkBuffer> m_model_buffers;
-        std::vector<VkDeviceMemory> m_model_buffer_memories;
+        std::vector<VmaAllocation> m_model_buffer_allocations;
     };
 }
 

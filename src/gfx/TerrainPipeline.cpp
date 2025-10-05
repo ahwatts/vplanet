@@ -5,6 +5,9 @@
 #include <sstream>
 #include <vector>
 
+#include "../vulkan.h"
+#include "../VmaUsage.h"
+
 #include "Pipeline.h"
 #include "Renderer.h"
 #include "Resource.h"
@@ -22,8 +25,8 @@ gfx::TerrainPipeline::TerrainPipeline(Renderer *renderer)
       m_num_indices{0},
       m_vertex_buffer{VK_NULL_HANDLE},
       m_index_buffer{VK_NULL_HANDLE},
-      m_vertex_buffer_memory{VK_NULL_HANDLE},
-      m_index_buffer_memory{VK_NULL_HANDLE}
+      m_vertex_buffer_allocation{nullptr},
+      m_index_buffer_allocation{nullptr}
 {}
 
 gfx::TerrainPipeline::~TerrainPipeline() {
@@ -49,11 +52,11 @@ void gfx::TerrainPipeline::setGeometry(const std::vector<TerrainVertex> &verts, 
     gfx->createBufferWithData(
         verts.data(), verts.size() * sizeof(TerrainVertex),
         VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-        m_vertex_buffer, m_vertex_buffer_memory);
+        m_vertex_buffer, m_vertex_buffer_allocation);
     gfx->createBufferWithData(
         indices.data(), indices.size() * sizeof(uint32_t),
         VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-        m_index_buffer, m_index_buffer_memory);
+        m_index_buffer, m_index_buffer_allocation);
     m_num_indices = static_cast<uint32_t>(indices.size());
 }
 
@@ -66,29 +69,17 @@ void gfx::TerrainPipeline::writeTransform(uint32_t buffer_index) {
 }
 
 void gfx::TerrainPipeline::cleanupGeometryBuffers() {
-    VkDevice device = m_renderer->system()->device();
+    System *gfx = m_renderer->system();
+
+    gfx->destroyBuffer(m_vertex_buffer, m_vertex_buffer_allocation);
+    m_vertex_buffer = VK_NULL_HANDLE;
+    m_vertex_buffer_allocation = nullptr;
+
+    gfx->destroyBuffer(m_index_buffer, m_index_buffer_allocation);
+    m_index_buffer = VK_NULL_HANDLE;
+    m_index_buffer_allocation = nullptr;
+
     m_num_indices = 0;
-    if (device != VK_NULL_HANDLE) {
-        if (m_vertex_buffer != VK_NULL_HANDLE) {
-            vkDestroyBuffer(device, m_vertex_buffer, nullptr);
-            m_vertex_buffer = VK_NULL_HANDLE;
-        }
-
-        if (m_index_buffer != VK_NULL_HANDLE) {
-            vkDestroyBuffer(device, m_index_buffer, nullptr);
-            m_index_buffer = VK_NULL_HANDLE;
-        }
-
-        if (m_vertex_buffer_memory != VK_NULL_HANDLE) {
-            vkFreeMemory(device, m_vertex_buffer_memory, nullptr);
-            m_vertex_buffer_memory = VK_NULL_HANDLE;
-        }
-
-        if (m_index_buffer_memory != VK_NULL_HANDLE) {
-            vkFreeMemory(device, m_index_buffer_memory, nullptr);
-            m_index_buffer_memory = VK_NULL_HANDLE;
-        }
-    }
 }
 
 void gfx::TerrainPipeline::recordCommands(VkCommandBuffer cmd_buf, uint32_t fb_index) {

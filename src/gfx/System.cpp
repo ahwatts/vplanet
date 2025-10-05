@@ -309,11 +309,10 @@ uint32_t gfx::System::chooseMemoryType(uint32_t type_filter, VkMemoryPropertyFla
 }
 
 void gfx::System::createBuffer(
-    VkDeviceSize size,
+    size_t size,
     VkBufferUsageFlags usage,
-    VkMemoryPropertyFlags mem_props,
     VkBuffer &buffer,
-    VkDeviceMemory &memory)
+    VmaAllocation &allocation)
 {
     VkBufferCreateInfo buf_ci;
     buf_ci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -325,81 +324,31 @@ void gfx::System::createBuffer(
     buf_ci.queueFamilyIndexCount = 0;
     buf_ci.pQueueFamilyIndices = nullptr;
 
-    VkResult rslt = vkCreateBuffer(m_device, &buf_ci, nullptr, &buffer);
+    VmaAllocationCreateInfo alloc_ci;
+    alloc_ci.usage = VMA_MEMORY_USAGE_AUTO;
+
+    VkResult rslt = vmaCreateBuffer(m_allocator, &buf_ci, &alloc_ci, &buffer, &allocation, nullptr);
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
         msg << "Unable to create buffer. Error code: " << rslt;
-        throw std::runtime_error(msg.str());
-    }
-
-    VkMemoryRequirements mem_reqs;
-    vkGetBufferMemoryRequirements(m_device, buffer, &mem_reqs);
-
-    uint32_t mem_type = chooseMemoryType(mem_reqs.memoryTypeBits, mem_props);
-    if (mem_type == UINT32_MAX) {
-        std::stringstream msg;
-        msg << "No memory type appropriate for buffer";
-        throw std::runtime_error(msg.str());
-    }
-
-    VkMemoryAllocateInfo mem_ai;
-    mem_ai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    mem_ai.pNext = nullptr;
-    mem_ai.allocationSize = mem_reqs.size;
-    mem_ai.memoryTypeIndex = mem_type;
-
-    rslt = vkAllocateMemory(m_device, &mem_ai, nullptr, &memory);
-    if (rslt != VK_SUCCESS) {
-        std::stringstream msg;
-        msg << "Unable to allocate buffer memory. Error code: " << rslt;
-        throw std::runtime_error(msg.str());
-    }
-
-    rslt = vkBindBufferMemory(m_device, buffer, memory, 0);
-    if (rslt != VK_SUCCESS) {
-        std::stringstream msg;
-        msg << "Unable to bind buffer memory to buffer. Error code: " << rslt;
         throw std::runtime_error(msg.str());
     }
 }
 
 void gfx::System::createBufferWithData(
     const void *data,
-    size_t data_size,
+    size_t size,
     VkBufferUsageFlags usage,
-    VkBuffer &dst_buffer,
-    VkDeviceMemory &dst_memory)
+    VkBuffer &buffer,
+    VmaAllocation &allocation)
 {
-    VkDeviceSize buffer_size = data_size;
-    VkBuffer staging_buffer{VK_NULL_HANDLE};
-    VkDeviceMemory staging_buffer_memory{VK_NULL_HANDLE};
-    createBuffer(
-        buffer_size,
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        staging_buffer, staging_buffer_memory);
-
-    void *mapped_data = nullptr;
-    VkResult rslt = vkMapMemory(m_device, staging_buffer_memory, 0, buffer_size, 0, &mapped_data);
+    createBuffer(size, usage, buffer, allocation);
+    VkResult rslt = vmaCopyMemoryToAllocation(m_allocator, data, allocation, 0, size);
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
-        msg << "Cannot map staging buffer memory. Error code: " << rslt;
+        msg << "UNable to copy data to buffer. Error code: " << rslt;
         throw std::runtime_error(msg.str());
     }
-
-    std::memcpy(mapped_data, data, data_size);
-    vkUnmapMemory(m_device, staging_buffer_memory);
-
-    createBuffer(
-        buffer_size,
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        dst_buffer, dst_memory);
-
-    copyBuffer(dst_buffer, staging_buffer, buffer_size);
-
-    vkDestroyBuffer(m_device, staging_buffer, nullptr);
-    vkFreeMemory(m_device, staging_buffer_memory, nullptr);
 }
 
 void gfx::System::copyBuffer(VkBuffer dst, VkBuffer src, VkDeviceSize size) {
@@ -411,6 +360,12 @@ void gfx::System::copyBuffer(VkBuffer dst, VkBuffer src, VkDeviceSize size) {
     VkCommandBuffer cb = m_commands.beginOneShot();
     vkCmdCopyBuffer(cb, src, dst, 1, &region);
     m_commands.endOneShot(cb);
+}
+
+void gfx::System::destroyBuffer(VkBuffer buffer, VmaAllocation allocation) {
+    if (m_allocator != nullptr) {
+        vmaDestroyBuffer(m_allocator, buffer, allocation);
+    }
 }
 
 void gfx::System::createShaderModule(const Resource &rsrc, VkShaderModule &shader) {
@@ -704,6 +659,7 @@ void gfx::System::initAllocator() {
     if (m_allocator == nullptr) {
         VmaAllocatorCreateInfo alloc_ci;
         alloc_ci.flags = 0;
+        alloc_ci.physicalDevice = m_physical_device;
         alloc_ci.device = m_device;
         alloc_ci.preferredLargeHeapBlockSize = 0; // Use default: 256 MiB
         alloc_ci.pAllocationCallbacks = nullptr;

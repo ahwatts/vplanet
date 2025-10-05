@@ -64,9 +64,10 @@ namespace gfx {
 
         uint32_t chooseMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties) const;
 
-        void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags mem_props, VkBuffer &buffer, VkDeviceMemory &memory);
-        void createBufferWithData(const void *data, size_t data_size, VkBufferUsageFlags buffer_type, VkBuffer &dst_buffer, VkDeviceMemory &dst_memory);
+        void createBuffer(size_t size, VkBufferUsageFlags usage, VkBuffer &buffer, VmaAllocation &allocation);
+        void createBufferWithData(const void *data, size_t size, VkBufferUsageFlags usage, VkBuffer &buffer, VmaAllocation &allocation);
         void copyBuffer(VkBuffer dst, VkBuffer src, VkDeviceSize size);
+        void destroyBuffer(VkBuffer buffer, VmaAllocation allocation);
 
         void createShaderModule(const Resource &rsrc, VkShaderModule &shader);
 
