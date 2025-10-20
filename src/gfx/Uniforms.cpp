@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "../vulkan.h"
+#include "../VmaUsage.h"
 
 #include "../glm_defines.h"
 #include <glm/vec3.hpp>
@@ -253,6 +254,7 @@ void gfx::SceneUniformSet::initUniformBuffers() {
             gfx->createBuffer(
                 buffer_size,
                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
                 m_view_projection_buffers[i],
                 m_view_projection_buffer_allocations[i]);
         }
@@ -267,6 +269,7 @@ void gfx::SceneUniformSet::initUniformBuffers() {
             gfx->createBuffer(
                 buffer_size,
                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
                 m_light_list_buffers[i],
                 m_light_list_buffer_allocations[i]);
         }
@@ -278,6 +281,10 @@ void gfx::SceneUniformSet::cleanupUniformBuffers() {
 
     for (int i = 0; i < m_view_projection_buffers.size(); ++i) {
         gfx->destroyBuffer(m_view_projection_buffers[i], m_view_projection_buffer_allocations[i]);
+    }
+
+    for (int i = 0; i < m_light_list_buffers.size(); ++i) {
+        gfx->destroyBuffer(m_light_list_buffers[i], m_light_list_buffer_allocations[i]);
     }
 
     m_view_projection_buffers.clear();
@@ -448,6 +455,7 @@ void gfx::ModelUniformSet::initUniformBuffers() {
             gfx->createBuffer(
                 buffer_size,
                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
                 m_model_buffers[i],
                 m_model_buffer_allocations[i]);
         }

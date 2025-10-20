@@ -39,7 +39,7 @@ gfx::System::System(GLFWwindow *window)
       m_image_available_semaphore{VK_NULL_HANDLE},
       m_render_finished_semaphore{VK_NULL_HANDLE},
       m_in_flight_fence{VK_NULL_HANDLE},
-      m_allocator{nullptr},
+      m_allocator{VK_NULL_HANDLE},
       m_commands{this},
       m_swapchain{this},
       m_depth_buffer{this},
@@ -311,21 +311,19 @@ uint32_t gfx::System::chooseMemoryType(uint32_t type_filter, VkMemoryPropertyFla
 void gfx::System::createBuffer(
     size_t size,
     VkBufferUsageFlags usage,
+    VmaAllocationCreateFlags allocation_flags,
     VkBuffer &buffer,
     VmaAllocation &allocation)
 {
-    VkBufferCreateInfo buf_ci;
+    VkBufferCreateInfo buf_ci{};
     buf_ci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    buf_ci.pNext = nullptr;
-    buf_ci.flags = 0;
     buf_ci.size = size;
     buf_ci.usage = usage;
     buf_ci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    buf_ci.queueFamilyIndexCount = 0;
-    buf_ci.pQueueFamilyIndices = nullptr;
 
-    VmaAllocationCreateInfo alloc_ci;
+    VmaAllocationCreateInfo alloc_ci{};
     alloc_ci.usage = VMA_MEMORY_USAGE_AUTO;
+    alloc_ci.flags = allocation_flags;
 
     VkResult rslt = vmaCreateBuffer(m_allocator, &buf_ci, &alloc_ci, &buffer, &allocation, nullptr);
     if (rslt != VK_SUCCESS) {
@@ -342,17 +340,42 @@ void gfx::System::createBufferWithData(
     VkBuffer &buffer,
     VmaAllocation &allocation)
 {
-    createBuffer(size, usage, buffer, allocation);
-    VkResult rslt = vmaCopyMemoryToAllocation(m_allocator, data, allocation, 0, size);
+    // Create a staging buffer.
+    VkBuffer staging_buffer{VK_NULL_HANDLE};
+    VmaAllocation staging_alloc{VK_NULL_HANDLE};
+    createBuffer(
+        size,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT, 
+        staging_buffer, 
+        staging_alloc);
+
+
+    // Create the real buffer.
+    createBuffer(
+        size,
+        usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        0,
+        buffer,
+        allocation);
+
+    // Copy the data to the staging buffer.
+    VkResult rslt = vmaCopyMemoryToAllocation(m_allocator, data, staging_alloc, 0, size);
     if (rslt != VK_SUCCESS) {
-        std::stringstream msg;
-        msg << "UNable to copy data to buffer. Error code: " << rslt;
+        std::stringstream msg{};
+        msg << "UNable to copy data to the staging buffer. Error code: " << rslt;
         throw std::runtime_error(msg.str());
     }
+
+    // Copy the staging buffer to the real buffer.
+    copyBuffer(buffer, staging_buffer, size);
+
+    // Clean up the staging buffer.
+    destroyBuffer(staging_buffer, staging_alloc);
 }
 
 void gfx::System::copyBuffer(VkBuffer dst, VkBuffer src, VkDeviceSize size) {
-    VkBufferCopy region;
+    VkBufferCopy region{};
     region.srcOffset = 0;
     region.size = size;
     region.dstOffset = 0;
@@ -363,7 +386,7 @@ void gfx::System::copyBuffer(VkBuffer dst, VkBuffer src, VkDeviceSize size) {
 }
 
 void gfx::System::destroyBuffer(VkBuffer buffer, VmaAllocation allocation) {
-    if (m_allocator != nullptr) {
+    if (m_allocator != VK_NULL_HANDLE) {
         vmaDestroyBuffer(m_allocator, buffer, allocation);
     }
 }
@@ -656,19 +679,12 @@ void gfx::System::cleanupDevice() {
 }
 
 void gfx::System::initAllocator() {
-    if (m_allocator == nullptr) {
-        VmaAllocatorCreateInfo alloc_ci;
-        alloc_ci.flags = 0;
+    if (m_allocator == VK_NULL_HANDLE) {
+        VmaAllocatorCreateInfo alloc_ci{};
         alloc_ci.physicalDevice = m_physical_device;
         alloc_ci.device = m_device;
-        alloc_ci.preferredLargeHeapBlockSize = 0; // Use default: 256 MiB
-        alloc_ci.pAllocationCallbacks = nullptr;
-        alloc_ci.pDeviceMemoryCallbacks = nullptr;
-        alloc_ci.pHeapSizeLimit = nullptr;
-        alloc_ci.pVulkanFunctions = nullptr;
         alloc_ci.instance = m_instance;
         alloc_ci.vulkanApiVersion = VK_API_VERSION_1_0;
-        alloc_ci.pTypeExternalMemoryHandleTypes = nullptr;
         VkResult rslt = vmaCreateAllocator(&alloc_ci, &m_allocator);
         if (rslt != VK_SUCCESS) {
             std::stringstream msg;
@@ -679,15 +695,15 @@ void gfx::System::initAllocator() {
 }
 
 void gfx::System::cleanupAllocator() {
-    if (m_allocator != nullptr) {
+    if (m_allocator != VK_NULL_HANDLE) {
         vmaDestroyAllocator(m_allocator);
-        m_allocator = nullptr;
+        m_allocator = VK_NULL_HANDLE;
     }
 }
 
 void gfx::System::initSemaphores() {
     if (m_image_available_semaphore == VK_NULL_HANDLE) {
-        VkSemaphoreCreateInfo sem_ci;
+        VkSemaphoreCreateInfo sem_ci{};
         sem_ci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
         sem_ci.pNext = nullptr;
         sem_ci.flags = 0;
@@ -695,7 +711,7 @@ void gfx::System::initSemaphores() {
     }
 
     if (m_render_finished_semaphore == VK_NULL_HANDLE) {
-        VkSemaphoreCreateInfo sem_ci;
+        VkSemaphoreCreateInfo sem_ci{};
         sem_ci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
         sem_ci.pNext = nullptr;
         sem_ci.flags = 0;
@@ -703,7 +719,7 @@ void gfx::System::initSemaphores() {
     }
 
     if (m_in_flight_fence == VK_NULL_HANDLE) {
-        VkFenceCreateInfo fence_ci;
+        VkFenceCreateInfo fence_ci{};
         fence_ci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
         fence_ci.pNext = nullptr;
         fence_ci.flags = VK_FENCE_CREATE_SIGNALED_BIT;

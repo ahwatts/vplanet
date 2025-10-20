@@ -64,7 +64,7 @@ namespace gfx {
 
         uint32_t chooseMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties) const;
 
-        void createBuffer(size_t size, VkBufferUsageFlags usage, VkBuffer &buffer, VmaAllocation &allocation);
+        void createBuffer(size_t size, VkBufferUsageFlags usage, VmaAllocationCreateFlags allocation_flags, VkBuffer &buffer, VmaAllocation &allocation);
         void createBufferWithData(const void *data, size_t size, VkBufferUsageFlags usage, VkBuffer &buffer, VmaAllocation &allocation);
         void copyBuffer(VkBuffer dst, VkBuffer src, VkDeviceSize size);
         void destroyBuffer(VkBuffer buffer, VmaAllocation allocation);
