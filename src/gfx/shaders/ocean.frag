@@ -41,9 +41,11 @@ void main(void) {
     for (int i = 0; i < MAX_LIGHTS; ++i) {
         if (lights[i].enabled) {
             vec3 reflected = normalize(reflect(lights[i].direction, inNormal));
-
-            float specular = pow(dot(reflected, inEyeDir), specular_pow);
-            specular_color += specular * vec3(0.5, 0.5, 1.0);
+            float specular_cos = dot(reflected, inEyeDir);
+            if (specular_cos > 0) {
+                float specular = pow(specular_cos, specular_pow);
+                specular_color += specular * vec3(0.5, 0.5, 1.0);
+            }
         }
     }
     specular_color = clamp(specular_color, 0.0, 1.0);
