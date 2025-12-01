@@ -60,7 +60,7 @@ void gfx::System::init(bool debug) {
 
     initSurface();
     initDevice(debug);
-    initAllocator();
+    initAllocator(debug);
     initSemaphores();
     m_swapchain.init();
     m_commands.init();
@@ -572,6 +572,86 @@ VkBool32 gfx::System::debugCallback(
     return VK_FALSE;
 }
 
+VKAPI_ATTR void VKAPI_CALL gfx::System::memoryAllocationCallback(
+    VmaAllocator allocator,
+    uint32_t memoryType,
+    VkDeviceMemory memory,
+    VkDeviceSize size,
+    void *user_data)
+{
+    if (user_data != nullptr) {
+        static_cast<System*>(user_data)->memoryAllocationCallback(allocator, memoryType, memory, size);
+    }
+}
+
+void printMemoryTypeProperties(VkMemoryPropertyFlags flags) {
+    if (flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) {
+        std::cerr << "device local ";
+    }
+    if (flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
+        std::cerr << "host visible ";
+    }
+    if (flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) {
+        std::cerr << "host coherent ";
+    }
+    if (flags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) {
+        std::cerr << "host cached ";
+    }
+    if (flags & VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT) {
+        std::cerr << "lazily allocated ";
+    }
+    if (flags & VK_MEMORY_PROPERTY_PROTECTED_BIT) {
+        std::cerr << "protected ";
+    }
+    if (flags & VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD) {
+        std::cerr << "device coherent (AMD) ";
+    }
+    if (flags & VK_MEMORY_PROPERTY_DEVICE_UNCACHED_BIT_AMD) {
+        std::cerr << "device uncached (AMD) ";
+    }
+    if (flags & VK_MEMORY_PROPERTY_RDMA_CAPABLE_BIT_NV) {
+        std::cerr << "RDMA capable (NV) ";
+    }
+}
+
+void gfx::System::memoryAllocationCallback(
+    VmaAllocator allocator,
+    uint32_t memoryType,
+    VkDeviceMemory memory,
+    VkDeviceSize size)
+{
+    std::cerr << "VMA Allocator: Allocating " << size << " bytes of ";
+    VkMemoryPropertyFlags flags = 0;
+    vmaGetMemoryTypeProperties(allocator, memoryType, &flags);
+    printMemoryTypeProperties(flags);
+    std::cerr << "memory\n";
+}
+
+VKAPI_ATTR void VKAPI_CALL gfx::System::memoryFreeCallback(
+    VmaAllocator allocator,
+    uint32_t memoryType,
+    VkDeviceMemory memory,
+    VkDeviceSize size,
+    void *user_data)
+{
+    if (user_data != nullptr) {
+        static_cast<System*>(user_data)->memoryFreeCallback(allocator, memoryType, memory, size);
+    }
+}
+
+void gfx::System::memoryFreeCallback(
+    VmaAllocator allocator,
+    uint32_t memoryType,
+    VkDeviceMemory memory,
+    VkDeviceSize size)
+{
+    std::cerr << "VMA Allocator: Freeing " << size << " bytes of ";
+    VkMemoryPropertyFlags flags = 0;
+    vmaGetMemoryTypeProperties(allocator, memoryType, &flags);
+    printMemoryTypeProperties(flags);
+    std::cerr << "memory\n";
+}
+
 void gfx::System::initSurface() {
     if (m_surface != VK_NULL_HANDLE) {
         return;
@@ -678,13 +758,23 @@ void gfx::System::cleanupDevice() {
     }
 }
 
-void gfx::System::initAllocator() {
+void gfx::System::initAllocator(bool debug) {
     if (m_allocator == VK_NULL_HANDLE) {
         VmaAllocatorCreateInfo alloc_ci{};
+        VmaDeviceMemoryCallbacks callbacks{};
+
         alloc_ci.physicalDevice = m_physical_device;
         alloc_ci.device = m_device;
         alloc_ci.instance = m_instance;
         alloc_ci.vulkanApiVersion = VK_API_VERSION_1_0;
+
+        if (debug) {
+            callbacks.pfnAllocate = gfx::System::memoryAllocationCallback;
+            callbacks.pfnFree = gfx::System::memoryFreeCallback;
+            callbacks.pUserData = this;
+            alloc_ci.pDeviceMemoryCallbacks = &callbacks;
+        }
+
         VkResult rslt = vmaCreateAllocator(&alloc_ci, &m_allocator);
         if (rslt != VK_SUCCESS) {
             std::stringstream msg;

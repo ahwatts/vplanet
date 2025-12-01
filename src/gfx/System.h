@@ -84,7 +84,7 @@ namespace gfx {
         void initDevice(bool debug);
         void cleanupDevice();
 
-        void initAllocator();
+        void initAllocator(bool debug);
         void cleanupAllocator();
 
         void initSemaphores();
@@ -107,6 +107,29 @@ namespace gfx {
             int32_t code,
             const char *layer_prefix,
             const char *message);
+
+        static VKAPI_ATTR void VKAPI_CALL memoryAllocationCallback(
+            VmaAllocator allocator,
+            uint32_t memoryType,
+            VkDeviceMemory memory,
+            VkDeviceSize size,
+            void *user_data);
+        void memoryAllocationCallback(
+            VmaAllocator allocator,
+            uint32_t memoryType,
+            VkDeviceMemory memory,
+            VkDeviceSize size);
+        static VKAPI_ATTR void VKAPI_CALL memoryFreeCallback(
+            VmaAllocator allocator,
+            uint32_t memoryType,
+            VkDeviceMemory memory,
+            VkDeviceSize size,
+            void *user_data);
+        void memoryFreeCallback(
+            VmaAllocator allocator,
+            uint32_t memoryType,
+            VkDeviceMemory memory,
+            VkDeviceSize size);
 
         GLFWwindow *m_window;
 
