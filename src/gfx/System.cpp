@@ -602,65 +602,58 @@ void gfx::System::initDevice() {
     if (chosen_device.device == nullptr) {
         throw std::runtime_error("Unable to find a suitable physical device");
     }
+    m_physical_device = *chosen_device.device;
+    m_graphics_queue_family = chosen_device.graphics_queue_family;
+    m_present_queue_family = chosen_device.present_queue_family;
     
-    // float queue_priority = 1.0;
-    // std::vector<VkDeviceQueueCreateInfo> queue_cis{1};
-    // queue_cis[0].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    // queue_cis[0].pNext = nullptr;
-    // queue_cis[0].flags = 0;
-    // queue_cis[0].queueFamilyIndex = chosen_device.graphics_queue_family;
-    // queue_cis[0].queueCount = 1;
-    // queue_cis[0].pQueuePriorities = &queue_priority;
+    float queue_priority = 1.0;
+    std::vector<vk::DeviceQueueCreateInfo> queue_cis{
+        vk::DeviceQueueCreateInfo{
+            .queueFamilyIndex = m_graphics_queue_family,
+            .queueCount = 1,
+            .pQueuePriorities = &queue_priority,
+        },
+    };
 
-    // if (chosen_device.graphics_queue_family != chosen_device.present_queue_family) {
-    //     queue_cis.emplace_back(VkDeviceQueueCreateInfo{});
-    //     queue_cis[1].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    //     queue_cis[1].pNext = nullptr;
-    //     queue_cis[1].flags = 0;
-    //     queue_cis[1].queueFamilyIndex = chosen_device.present_queue_family;
-    //     queue_cis[1].queueCount = 1;
-    //     queue_cis[1].pQueuePriorities = &queue_priority;
-    // }
+    if (m_graphics_queue_family != m_present_queue_family) {
+        queue_cis.emplace_back(vk::DeviceQueueCreateInfo{
+            .queueFamilyIndex = m_present_queue_family,
+            .queueCount = 1,
+            .pQueuePriorities = &queue_priority,
+        });
+    }
 
-    // VkPhysicalDeviceFeatures features{};
-    // features.samplerAnisotropy = VK_TRUE;
+    vk::StructureChain<
+        vk::PhysicalDeviceFeatures2,
+        vk::PhysicalDeviceVulkan11Features,
+        vk::PhysicalDeviceVulkan13Features,
+        vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT
+    > feature_chain = {
+        vk::PhysicalDeviceFeatures2{
+            .features = vk::PhysicalDeviceFeatures{
+                .samplerAnisotropy = true, // Enable ansiotropic filtering in samplers
+            },
+        },
+        vk::PhysicalDeviceVulkan11Features{
+            // .shaderDrawParameters = true, // Enable shader draw parameters (we need this for SV_VertexID in the shader)
+        },
+        vk::PhysicalDeviceVulkan13Features{
+            .synchronization2 = true, // Support new synchronization commands
+            .dynamicRendering = true, // Enable dynamic rendering from Vulkan 1.3
+        },
+        vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT{
+            .extendedDynamicState = true // Enable extended dynamic state from the extension
+        },
+    };
 
-    // std::vector<const char*> extensions = requiredDeviceExtensions(debug);
-    // std::vector<const char*> layers = requiredDeviceLayers(debug);
+    std::vector<const char*> extensions = requiredDeviceExtensions(m_debug);
+    std::vector<const char*> layers = requiredDeviceLayers(m_debug);
 
-    // uint32_t num_available_extensions;
-    // vkEnumerateDeviceExtensionProperties(chosen_device.device, nullptr, &num_available_extensions, nullptr);
-    // std::vector<VkExtensionProperties> available_extensions{num_available_extensions};
-    // vkEnumerateDeviceExtensionProperties(chosen_device.device, nullptr, &num_available_extensions, available_extensions.data());
+    vk::DeviceCreateInfo dev_ci = vk::DeviceCreateInfo{.pNext = &feature_chain.get<vk::PhysicalDeviceFeatures2>()}
+        .setPEnabledExtensionNames(extensions)
+        .setQueueCreateInfos(queue_cis);
 
-    // for (auto extension : available_extensions) {
-    //     if (std::strcmp(extension.extensionName, "VK_KHR_portability_subset") == 0) {
-    //         extensions.push_back("VK_KHR_portability_subset");
-    //     }
-    // }
-
-    // VkDeviceCreateInfo dev_ci;
-    // dev_ci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    // dev_ci.pNext = nullptr;
-    // dev_ci.flags = 0;
-    // dev_ci.pEnabledFeatures = &features;
-    // dev_ci.queueCreateInfoCount = static_cast<uint32_t>(queue_cis.size());
-    // dev_ci.pQueueCreateInfos = queue_cis.data();
-    // dev_ci.enabledLayerCount = static_cast<uint32_t>(layers.size());
-    // dev_ci.ppEnabledLayerNames = layers.empty() ? nullptr : layers.data();
-    // dev_ci.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-    // dev_ci.ppEnabledExtensionNames = extensions.empty() ? nullptr : extensions.data();
-
-    // VkResult rslt = vkCreateDevice(chosen_device.device, &dev_ci, nullptr, &m_device);
-    // if (rslt == VK_SUCCESS) {
-    //     m_physical_device = chosen_device.device;
-    //     m_graphics_queue_family = chosen_device.graphics_queue_family;
-    //     m_present_queue_family = chosen_device.present_queue_family;
-    // } else {
-    //     std::stringstream msg;
-    //     msg << "Error creating Vulkan device. Error code: " << rslt;
-    //     throw std::runtime_error{msg.str()};
-    // }
+    m_device = m_physical_device.createDevice(dev_ci);
 }
 
 void gfx::System::initAllocator() {
@@ -828,9 +821,9 @@ std::vector<const char*> requiredInstanceExtensions(bool debug) {
         required_extensions.push_back(vk::EXTDebugUtilsExtensionName);
     }
 
-#ifdef __APPLE__
-    required_extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
-#endif
+    #ifdef __APPLE__
+    required_extensions.push_back(vk::KHRPortabilityEnumerationExtensionName);
+    #endif
 
     return required_extensions;
 }
@@ -848,6 +841,11 @@ std::vector<const char*> requiredInstanceLayers(bool debug) {
 std::vector<const char*> requiredDeviceExtensions(bool debug) {
     std::vector<const char*> required_extensions;
     required_extensions.push_back(vk::KHRSwapchainExtensionName);
+
+    #ifdef __APPLE__
+    required_extensions.push_back(vk::KHRPortabilitySubsetExtensionName);
+    #endif
+
     return required_extensions;
 }
 
