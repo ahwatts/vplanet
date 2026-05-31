@@ -51,7 +51,7 @@ gfx::System::System(GLFWwindow *window, bool debug)
   m_present_complete_semaphores{},
   m_draw_fences{},
   m_allocator{VK_NULL_HANDLE},
-  m_commands{this},
+  m_commands{},
   m_swapchain{},
   m_depth_buffer{this},
   m_renderer{this},
@@ -68,7 +68,7 @@ gfx::System::System(GLFWwindow *window, bool debug)
     initAllocator();
     m_swapchain = Swapchain(this);
     initSynchronizationObjects();
-    m_commands.init();
+    m_commands = Commands(this);
     m_depth_buffer.init();
     m_uniforms.init();
     m_renderer.init();
@@ -81,7 +81,6 @@ gfx::System::~System() {
     m_renderer.dispose();
     m_uniforms.dispose();
     m_depth_buffer.dispose();
-    m_commands.dispose();
     cleanupAllocator();
 }
 
@@ -182,30 +181,14 @@ void gfx::System::writeLightList(uint32_t buffer_index) {
 }
 
 void gfx::System::recordCommandBuffers() {
-    const std::vector<VkCommandBuffer> &draw_commands = m_commands.drawCommands();
+    const std::vector<vk::raii::CommandBuffer> &draw_commands = m_commands.drawCommands();
 
     for (uint32_t i = 0; i < draw_commands.size(); ++i) {
-        VkCommandBufferBeginInfo cb_bi;
-        cb_bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        cb_bi.pNext = nullptr;
-        cb_bi.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
-        cb_bi.pInheritanceInfo = nullptr;
-
-        VkResult rslt = vkBeginCommandBuffer(draw_commands[i], &cb_bi);
-        if (rslt != VK_SUCCESS) {
-            std::stringstream msg;
-            msg << "Unable to start recording command buffer. Error code: " << rslt;
-            throw std::runtime_error(msg.str());
-        }
-
-        m_renderer.recordCommands(draw_commands[i], i);
-
-        rslt = vkEndCommandBuffer(draw_commands[i]);
-        if (rslt != VK_SUCCESS) {
-            std::stringstream msg;
-            msg << "Unable to finish recording command buffer. Error code: " << rslt;
-            throw std::runtime_error(msg.str());
-        }
+        const vk::raii::CommandBuffer &commands = draw_commands[i];
+        vk::CommandBufferBeginInfo cb_bi{.flags = vk::CommandBufferUsageFlagBits::eSimultaneousUse};
+        commands.begin(cb_bi);
+        m_renderer.recordCommands(*commands, i);
+        commands.end();
     }
 }
 
@@ -242,53 +225,33 @@ void gfx::System::drawFrame(uint32_t image_index) {
     vk::raii::Semaphore &present_complete = m_present_complete_semaphores[m_frame_index];    
     vk::raii::Semaphore &render_finished = m_render_finished_semaphores[image_index];
     vk::raii::Fence &draw_fence = m_draw_fences[m_frame_index];
+    const std::vector<vk::raii::CommandBuffer> &draw_commands = m_commands.drawCommands();
 
-    const std::vector<VkCommandBuffer> &draw_commands = m_commands.drawCommands();
-    std::array<VkPipelineStageFlags, 1> wait_stages{VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    std::array<VkSemaphore, 1> wait_semaphores{*present_complete};
-    std::array<VkSemaphore, 1> signal_semaphores{*render_finished};
-
-    VkSubmitInfo si;
-    si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    si.pNext = nullptr;
-    si.waitSemaphoreCount = static_cast<uint32_t>(wait_semaphores.size());
-    si.pWaitSemaphores = wait_semaphores.data();
-    si.pWaitDstStageMask = wait_stages.data();
-    si.commandBufferCount = 1;
-    si.pCommandBuffers = &draw_commands[image_index];
-    si.signalSemaphoreCount = static_cast<uint32_t>(signal_semaphores.size());
-    si.pSignalSemaphores = signal_semaphores.data();
-
-    VkResult rslt = vkQueueSubmit(m_commands.graphicsQueue(), 1, &si, *draw_fence);
-    if (rslt != VK_SUCCESS) {
-        std::stringstream msg;
-        msg << "Unable to submit command buffer to graphics queue. Error code: " << rslt;
-        throw std::runtime_error(msg.str());
-    }
+    vk::PipelineStageFlags wait_dst_stage_mask{vk::PipelineStageFlagBits::eColorAttachmentOutput};
+    vk::SubmitInfo si = vk::SubmitInfo{.pWaitDstStageMask = &wait_dst_stage_mask}
+        .setWaitSemaphores(*present_complete)
+        .setCommandBuffers(*draw_commands[image_index])
+        .setSignalSemaphores(*render_finished);
+    m_commands.graphicsQueue().submit(si, *draw_fence);
 }
 
 void gfx::System::presentFrame(uint32_t image_index) {
     vk::raii::Semaphore &render_finished = m_render_finished_semaphores[image_index];
-    VkSwapchainKHR swapchain = *m_swapchain.swapchain();
+    const vk::raii::SwapchainKHR &swapchain = m_swapchain.swapchain();
 
     std::array<VkSemaphore, 1> wait_semaphores{*render_finished};
-    VkPresentInfoKHR pi;
-    pi.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    pi.pNext = nullptr;
-    pi.waitSemaphoreCount = 1;
-    pi.pWaitSemaphores = wait_semaphores.data();
-    pi.swapchainCount = 1;
-    pi.pSwapchains = &swapchain;
-    pi.pImageIndices = &image_index;
-    pi.pResults = nullptr;
+    vk::PresentInfoKHR pi = vk::PresentInfoKHR{}
+        .setWaitSemaphores(*render_finished)
+        .setSwapchains(*swapchain)
+        .setImageIndices(image_index);
+    vk::Result rslt = m_commands.presentQueue().presentKHR(pi);
 
-    VkResult rslt = vkQueuePresentKHR(m_commands.presentQueue(), &pi);
-    if (rslt != VK_SUCCESS) {
-        std::stringstream msg;
-        msg << "Unable to submit to present queue. Error code: " << rslt;
-        throw std::runtime_error(msg.str());
+    if (rslt == vk::Result::eSuboptimalKHR || rslt == vk::Result::eErrorOutOfDateKHR) {
+        // re-create swap chain?
+    } else if (rslt != vk::Result::eSuccess) {
+        throw std::runtime_error("Error presenting new image");
     }
-
+    
     m_frame_index = (m_frame_index + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
@@ -379,14 +342,15 @@ void gfx::System::createBufferWithData(
 }
 
 void gfx::System::copyBuffer(VkBuffer dst, VkBuffer src, VkDeviceSize size) {
-    VkBufferCopy region{};
-    region.srcOffset = 0;
-    region.size = size;
-    region.dstOffset = 0;
+    vk::BufferCopy region{
+        .srcOffset = 0,
+        .dstOffset = 0,
+        .size = size,
+    };
 
-    VkCommandBuffer cb = m_commands.beginOneShot();
-    vkCmdCopyBuffer(cb, src, dst, 1, &region);
-    m_commands.endOneShot(cb);
+    vk::raii::CommandBuffer cb = m_commands.beginOneShot();
+    cb.copyBuffer(src, dst, region);
+    m_commands.endOneShot(std::move(cb));
 }
 
 void gfx::System::destroyBuffer(VkBuffer buffer, VmaAllocation allocation) {

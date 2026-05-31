@@ -13,35 +13,34 @@ namespace gfx {
     class Commands {
     public:
         Commands(System *system);
+        Commands();
+        Commands(const Commands &other) = delete;
+        Commands(Commands &&other);
+
         ~Commands();
 
-        void init();
-        void dispose();
+        Commands &operator=(const Commands &other) = delete;
+        Commands &operator=(Commands &&other);
 
-        VkQueue graphicsQueue() const;
+        const vk::raii::Queue &graphicsQueue() const;
         void waitGraphicsIdle() const;
-        VkQueue presentQueue() const;
+        const vk::raii::Queue &presentQueue() const;
         void waitPresentIdle() const;
-        const std::vector<VkCommandBuffer>& drawCommands() const;
+        const std::vector<vk::raii::CommandBuffer> &drawCommands() const;
 
-        VkCommandBuffer beginOneShot() const;
-        void endOneShot(VkCommandBuffer buffer) const;
+        vk::raii::CommandBuffer beginOneShot() const;
+        void endOneShot(vk::raii::CommandBuffer &&buffer) const;
 
     private:
         void initQueues();
-        void cleanupQueues();
-
         void initPool();
-        void cleanupPool();
-
         void initCommandBuffers();
-        void cleanupCommandBuffers();
 
         System *m_system;
 
-        VkQueue m_graphics_queue, m_present_queue;
-        VkCommandPool m_pool;
-        std::vector<VkCommandBuffer> m_draw_commands;
+        vk::raii::Queue m_graphics_queue, m_present_queue;
+        vk::raii::CommandPool m_pool;
+        std::vector<vk::raii::CommandBuffer> m_draw_commands;
     };
 }
 

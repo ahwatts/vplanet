@@ -11,12 +11,13 @@ namespace gfx {
 
     class Swapchain {
     public:
-        Swapchain();
         Swapchain(System *system);
+        Swapchain();
         Swapchain(const Swapchain &other) = delete;
         Swapchain(Swapchain &&other);
+        
         ~Swapchain();
-
+        
         Swapchain &operator=(const Swapchain &other) = delete;
         Swapchain &operator=(Swapchain &&other);
 

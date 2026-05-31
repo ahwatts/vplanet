@@ -145,7 +145,7 @@ void gfx::DepthBuffer::cleanupDepthResources() {
 
 void gfx::DepthBuffer::transitionImageLayout() {
     const Commands &commands = m_system->commands();
-    VkCommandBuffer cb = commands.beginOneShot();
+    vk::raii::CommandBuffer cb = commands.beginOneShot();
 
     VkImageMemoryBarrier barrier;
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -170,9 +170,9 @@ void gfx::DepthBuffer::transitionImageLayout() {
         barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
     }
 
-    vkCmdPipelineBarrier(cb, src_stage, dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+    vkCmdPipelineBarrier(*cb, src_stage, dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
-    commands.endOneShot(cb);
+    commands.endOneShot(std::move(cb));
 }
 
 VkFormat chooseDepthFormat(VkPhysicalDevice device) {
