@@ -63,22 +63,22 @@ void gfx::Swapchain::initSwapchain() {
     GLFWwindow *window = m_system->window();
     VkDevice device = m_system->device();
     VkPhysicalDevice physical_device = m_system->physicalDevice();
-    VkSurfaceKHR surface = m_system->surface();
+    const vk::raii::SurfaceKHR &surface = m_system->surface();
     uint32_t graphics_queue_family = m_system->graphicsQueueFamily();
     uint32_t present_queue_family = m_system->presentQueueFamily();
 
     VkSurfaceCapabilitiesKHR surf_caps;
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &surf_caps);
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, *surface, &surf_caps);
 
     uint32_t num_surface_formats;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &num_surface_formats, nullptr);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, *surface, &num_surface_formats, nullptr);
     std::vector<VkSurfaceFormatKHR> surface_formats{num_surface_formats};
-    vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &num_surface_formats, surface_formats.data());
+    vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, *surface, &num_surface_formats, surface_formats.data());
 
     uint32_t num_present_modes;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &num_present_modes, nullptr);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, *surface, &num_present_modes, nullptr);
     std::vector<VkPresentModeKHR> present_modes{num_present_modes};
-    vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &num_present_modes, present_modes.data());
+    vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, *surface, &num_present_modes, present_modes.data());
 
     m_extent = chooseSwapchainExtent(window, surf_caps);
     m_format = chooseSwapchainFormat(surface_formats);
@@ -97,7 +97,7 @@ void gfx::Swapchain::initSwapchain() {
     swap_ci.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     swap_ci.pNext = nullptr;
     swap_ci.flags = 0;
-    swap_ci.surface = surface;
+    swap_ci.surface = *surface;
     swap_ci.minImageCount = image_count;
     swap_ci.imageFormat = m_format.format;
     swap_ci.imageColorSpace = m_format.colorSpace;

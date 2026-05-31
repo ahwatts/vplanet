@@ -35,7 +35,7 @@ gfx::System::System(GLFWwindow *window, bool debug)
   m_context{},
   m_instance{nullptr},
   m_debug_messenger{nullptr},
-  m_surface{VK_NULL_HANDLE},
+  m_surface{nullptr},
   m_physical_device{VK_NULL_HANDLE},
   m_device{VK_NULL_HANDLE},
   m_graphics_queue_family{UINT32_MAX},
@@ -79,7 +79,6 @@ gfx::System::~System() {
     cleanupSemaphores();
     cleanupAllocator();
     cleanupDevice();
-    cleanupSurface();
 }
 
 GLFWwindow* gfx::System::window() const {
@@ -98,7 +97,7 @@ VkPhysicalDevice gfx::System::physicalDevice() const {
     return m_physical_device;
 }
 
-VkSurfaceKHR gfx::System::surface() const {
+const vk::raii::SurfaceKHR &gfx::System::surface() const {
     return m_surface;
 }
 
@@ -646,23 +645,17 @@ void gfx::System::memoryFreeCallback(
 }
 
 void gfx::System::initSurface() {
-    if (m_surface != VK_NULL_HANDLE) {
-        return;
-    }
+    assert(m_instance != nullptr);
 
-    VkResult rslt = glfwCreateWindowSurface(*m_instance, m_window, nullptr, &m_surface);
+    VkSurfaceKHR surface{VK_NULL_HANDLE};
+    VkResult rslt = glfwCreateWindowSurface(*m_instance, m_window, nullptr, &surface);
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
         msg << "Unable to create window surface. Error code: " << rslt;
         throw std::runtime_error{msg.str()};
     }
-}
 
-void gfx::System::cleanupSurface() {
-    if (m_instance != VK_NULL_HANDLE && m_surface != VK_NULL_HANDLE) {
-        vkDestroySurfaceKHR(*m_instance, m_surface, nullptr);
-        m_surface = VK_NULL_HANDLE;
-    }
+    m_surface = vk::raii::SurfaceKHR(m_instance, surface);
 }
 
 void gfx::System::initDevice(bool debug) {
@@ -674,7 +667,7 @@ void gfx::System::initDevice(bool debug) {
     vkEnumeratePhysicalDevices(*m_instance, &num_devices, nullptr);
     std::vector<VkPhysicalDevice> devices{num_devices};
     vkEnumeratePhysicalDevices(*m_instance, &num_devices, devices.data());
-    ChosenDeviceInfo chosen_device = choosePhysicalDevice(devices, m_surface, debug);
+    ChosenDeviceInfo chosen_device = choosePhysicalDevice(devices, *m_surface, debug);
     if (chosen_device.device == VK_NULL_HANDLE) {
         std::stringstream msg;
         msg << "Unable to find suitable physical device";

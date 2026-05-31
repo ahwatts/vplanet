@@ -26,7 +26,7 @@ namespace gfx {
         const vk::raii::Instance &instance() const;
         VkDevice device() const;
         VkPhysicalDevice physicalDevice() const;
-        VkSurfaceKHR surface() const;
+        const vk::raii::SurfaceKHR &surface() const;
         uint32_t graphicsQueueFamily() const;
         uint32_t presentQueueFamily() const;
 
@@ -71,9 +71,7 @@ namespace gfx {
     private:
         void initInstance();
         void initDebugCallback();
-
         void initSurface();
-        void cleanupSurface();
 
         void initDevice(bool debug);
         void cleanupDevice();
@@ -125,7 +123,7 @@ namespace gfx {
         vk::raii::Context m_context;
         vk::raii::Instance m_instance;
         vk::raii::DebugUtilsMessengerEXT m_debug_messenger;
-        VkSurfaceKHR m_surface;
+        vk::raii::SurfaceKHR m_surface;
         VkPhysicalDevice m_physical_device;
         VkDevice m_device;
         uint32_t m_graphics_queue_family, m_present_queue_family;
