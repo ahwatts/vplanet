@@ -1,6 +1,7 @@
 // -*- mode: c++; c-basic-offset: 4; encoding: utf-8; -*-
 
 #include <algorithm>
+#include <cassert>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -33,7 +34,7 @@ gfx::System::System(GLFWwindow *window, bool debug)
   m_debug{debug},
   m_context{},
   m_instance{nullptr},
-  m_debug_callback{VK_NULL_HANDLE},
+  m_debug_messenger{nullptr},
   m_surface{VK_NULL_HANDLE},
   m_physical_device{VK_NULL_HANDLE},
   m_device{VK_NULL_HANDLE},
@@ -67,6 +68,9 @@ gfx::System::System(GLFWwindow *window, bool debug)
 }
 
 gfx::System::~System() {
+    m_commands.waitGraphicsIdle();
+    m_commands.waitPresentIdle();
+
     m_renderer.dispose();
     m_uniforms.dispose();
     m_depth_buffer.dispose();
@@ -76,7 +80,6 @@ gfx::System::~System() {
     cleanupAllocator();
     cleanupDevice();
     cleanupSurface();
-    cleanupDebugCallback();
 }
 
 GLFWwindow* gfx::System::window() const {
@@ -484,78 +487,82 @@ void gfx::System::initInstance() {
 }
 
 void gfx::System::initDebugCallback() {
-    if (m_debug_callback != VK_NULL_HANDLE) {
-        return;
-    }
+    assert(m_instance != nullptr);
 
-    VkDebugReportCallbackCreateInfoEXT drc_ci{};
-    drc_ci.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
-    drc_ci.pNext = nullptr;
-    drc_ci.flags =
-        VK_DEBUG_REPORT_ERROR_BIT_EXT |
-        VK_DEBUG_REPORT_WARNING_BIT_EXT |
-        VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT |
-        VK_DEBUG_REPORT_INFORMATION_BIT_EXT |
-        VK_DEBUG_REPORT_DEBUG_BIT_EXT;
-    drc_ci.pUserData = this;
-    drc_ci.pfnCallback = gfx::System::debugCallback;
+    vk::DebugUtilsMessengerCreateInfoEXT dum_ci{
+        .messageSeverity = 
+            vk::DebugUtilsMessageSeverityFlagBitsEXT::eError |
+            vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo |
+            vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
+            vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning,
+        .messageType =
+            vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+            vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
+            vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation,
+        .pfnUserCallback = gfx::System::debugCallback,
+        .pUserData = this,
+    };
 
-    VkResult rslt = vkCreateDebugReportCallbackEXT(*m_instance, &drc_ci, nullptr, &m_debug_callback);
-    if (rslt != VK_SUCCESS) {
-        std::stringstream msg;
-        msg << "Unable to create debug report callback. Error code: " << rslt;
-        throw std::runtime_error{msg.str()};
-    }
+    m_debug_messenger = m_instance.createDebugUtilsMessengerEXT(dum_ci);
 }
 
-void gfx::System::cleanupDebugCallback() {
-    if (m_instance != VK_NULL_HANDLE && m_debug_callback != VK_NULL_HANDLE) {
-        vkDestroyDebugReportCallbackEXT(*m_instance, m_debug_callback, nullptr);
-        m_debug_callback = VK_NULL_HANDLE;
-    }
-}
-
-VKAPI_ATTR VkBool32 VKAPI_CALL gfx::System::debugCallback(
-    VkDebugReportFlagsEXT flags,
-    VkDebugReportObjectTypeEXT object_type,
-    uint64_t object,
-    size_t location,
-    int32_t code,
-    const char *layer_prefix,
-    const char *message,
-    void *user_data)
-{
+VKAPI_ATTR vk::Bool32 VKAPI_CALL gfx::System::debugCallback(
+    vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
+    vk::DebugUtilsMessageTypeFlagsEXT types,
+    const vk::DebugUtilsMessengerCallbackDataEXT *data,
+    void *user_data
+) {
     if (user_data != nullptr) {
-        return static_cast<System*>(user_data)->debugCallback(flags, object_type, object, location, code, layer_prefix, message);
+        return static_cast<System*>(user_data)->debugCallback(severity, types, data);
     } else {
-        return VK_FALSE;
+        return vk::False;
     }
 }
 
-VkBool32 gfx::System::debugCallback(
-    VkDebugReportFlagsEXT flags,
-    VkDebugReportObjectTypeEXT object_type,
-    uint64_t object,
-    size_t location,
-    int32_t code,
-    const char *layer_prefix,
-    const char *message)
-{
-    if (flags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
-        std::cerr << "Vulkan error: " << layer_prefix << ": " << message << "\n";
-    } else if (flags & VK_DEBUG_REPORT_WARNING_BIT_EXT) {
-        std::cerr << "Vulkan warning: " << layer_prefix << ": " << message << "\n";
-    } else if (flags & VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT) {
-        std::cerr << "Vulkan performance warning: " << layer_prefix << ": " << message << "\n";
-    } else if (flags & VK_DEBUG_REPORT_INFORMATION_BIT_EXT) {
-        std::cerr << "Vulkan info: " << layer_prefix << ": " << message << "\n";
-    } else if (flags & VK_DEBUG_REPORT_DEBUG_BIT_EXT) {
-        std::cerr << "Vulkan debug: " << layer_prefix << ": " << message << "\n";
-    } else {
-        std::cerr << "Vulkan unknown level: " << layer_prefix << ": " << message << "\n";
-    }
+vk::Bool32 gfx::System::debugCallback(
+    vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
+    vk::DebugUtilsMessageTypeFlagsEXT types,
+    const vk::DebugUtilsMessengerCallbackDataEXT *data
+) {
+    std::string msg = std::format(
+        "Vulkan {} {}: {}",
+        vk::to_string(severity),
+        vk::to_string(types), 
+        data->pMessage
+    );
 
-    return VK_FALSE;
+    std::cerr << msg << "\n";
+
+    // The rest of this is not necessarily all that interesting, but I leave it
+    // here in case it is at some point.
+    
+    // std::cerr << "flags: " << vk::to_string(data->flags) << "\n";
+    // std::cerr << "message id name: " << data->pMessageIdName << "\n";
+    // std::cerr << "message id number: " << data->messageIdNumber << "\n";
+
+    // std::cerr << "Queue labels: " << data->queueLabelCount << "\n";
+    // for (int i = 0; i < data->queueLabelCount; ++i) {
+    //     const vk::DebugUtilsLabelEXT &ql = data->pQueueLabels[i];
+    //     std::cerr << "color: " << ql.color[0] << " " << ql.color[1] << " " << ql.color[2] << " " << ql.color[3] << " " << ql.pLabelName << "\n";
+    // }
+    
+    // std::cerr << "Command Buffer Labels: " << data->cmdBufLabelCount << "\n";
+    // for (int i = 0; i < data->cmdBufLabelCount; ++i) {
+    //     const vk::DebugUtilsLabelEXT &bl = data->pCmdBufLabels[i];
+    //     std::cerr << "color: " << bl.color[0] << " " << bl.color[1] << " " << bl.color[2] << " " << bl.color[3] << " " << bl.pLabelName << "\n";        
+    // }
+    
+    // std::cerr << "Object Names: " << data->objectCount << "\n";
+    // for (int i = 0; i < data->objectCount; ++i) {
+    //     const vk::DebugUtilsObjectNameInfoEXT &obj = data->pObjects[i];
+    //     std::cerr << vk::to_string(obj.objectType) << " " << obj.objectHandle;
+    //     if (obj.pObjectName != nullptr) {
+    //         std::cerr << " " << obj.pObjectName;
+    //     }
+    //     std::cerr << "\n\n";
+    // }
+    
+    return vk::False;
 }
 
 VKAPI_ATTR void VKAPI_CALL gfx::System::memoryAllocationCallback(
@@ -946,7 +953,7 @@ std::vector<const char*> requiredInstanceExtensions(bool debug) {
     }
 
     if (debug) {
-        required_extensions.push_back(vk::EXTDebugReportExtensionName);
+        required_extensions.push_back(vk::EXTDebugUtilsExtensionName);
     }
 
 #ifdef __APPLE__

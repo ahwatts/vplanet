@@ -70,9 +70,7 @@ namespace gfx {
 
     private:
         void initInstance();
-
         void initDebugCallback();
-        void cleanupDebugCallback();
 
         void initSurface();
         void cleanupSurface();
@@ -86,23 +84,17 @@ namespace gfx {
         void initSemaphores();
         void cleanupSemaphores();
 
-        static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-            VkDebugReportFlagsEXT flags,
-            VkDebugReportObjectTypeEXT object_type,
-            uint64_t object,
-            size_t location,
-            int32_t code,
-            const char *layer_prefix,
-            const char *message,
-            void *user_data);
-        VkBool32 debugCallback(
-            VkDebugReportFlagsEXT flags,
-            VkDebugReportObjectTypeEXT object_type,
-            uint64_t object,
-            size_t location,
-            int32_t code,
-            const char *layer_prefix,
-            const char *message);
+        static VKAPI_ATTR vk::Bool32 debugCallback(
+            vk::DebugUtilsMessageSeverityFlagBitsEXT message_severity,
+            vk::DebugUtilsMessageTypeFlagsEXT message_types,
+            const vk::DebugUtilsMessengerCallbackDataEXT *data,
+            void *user_data
+        );
+        vk::Bool32 debugCallback(
+            vk::DebugUtilsMessageSeverityFlagBitsEXT message_severity,
+            vk::DebugUtilsMessageTypeFlagsEXT message_types,
+            const vk::DebugUtilsMessengerCallbackDataEXT *data
+        );
 
         static VKAPI_ATTR void VKAPI_CALL memoryAllocationCallback(
             VmaAllocator allocator,
@@ -132,7 +124,7 @@ namespace gfx {
 
         vk::raii::Context m_context;
         vk::raii::Instance m_instance;
-        VkDebugReportCallbackEXT m_debug_callback;
+        vk::raii::DebugUtilsMessengerEXT m_debug_messenger;
         VkSurfaceKHR m_surface;
         VkPhysicalDevice m_physical_device;
         VkDevice m_device;
