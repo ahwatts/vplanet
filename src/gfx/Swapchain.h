@@ -20,6 +20,7 @@ namespace gfx {
         VkSwapchainKHR swapchain() const;
         const std::vector<VkImage>& images() const;
         const std::vector<VkImageView>& imageViews() const;
+        uint32_t imageCount() const;
         VkSurfaceFormatKHR format() const;
         VkExtent2D extent() const;
 

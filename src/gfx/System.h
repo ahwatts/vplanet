@@ -19,6 +19,8 @@
 namespace gfx {
     class System {
     public:
+        static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
+        
         System(GLFWwindow *window, bool debug);
         ~System();
 
@@ -73,12 +75,10 @@ namespace gfx {
         void initDebugCallback();
         void initSurface();
         void initDevice();
+        void initSynchronizationObjects();
 
         void initAllocator();
         void cleanupAllocator();
-
-        void initSemaphores();
-        void cleanupSemaphores();
 
         static VKAPI_ATTR vk::Bool32 debugCallback(
             vk::DebugUtilsMessageSeverityFlagBitsEXT message_severity,
@@ -117,6 +117,7 @@ namespace gfx {
 
         GLFWwindow *m_window;
         bool m_debug;
+        uint32_t m_frame_index;
 
         vk::raii::Context m_context;
         vk::raii::Instance m_instance;
@@ -125,9 +126,9 @@ namespace gfx {
         vk::raii::PhysicalDevice m_physical_device;
         vk::raii::Device m_device;
         uint32_t m_graphics_queue_family, m_present_queue_family;
-        VkSemaphore m_image_available_semaphore;
-        VkSemaphore m_render_finished_semaphore;
-        VkFence m_in_flight_fence;
+        std::vector<vk::raii::Semaphore> m_present_complete_semaphores;
+        std::vector<vk::raii::Semaphore> m_render_finished_semaphores;
+        std::vector<vk::raii::Fence> m_draw_fences;
 
         VmaAllocator m_allocator;
 

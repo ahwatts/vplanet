@@ -47,6 +47,10 @@ const std::vector<VkImageView>& gfx::Swapchain::imageViews() const {
     return m_image_views;
 }
 
+uint32_t gfx::Swapchain::imageCount() const {
+    return static_cast<uint32_t>(m_images.size());
+}
+
 VkSurfaceFormatKHR gfx::Swapchain::format() const {
     return m_format;
 }
