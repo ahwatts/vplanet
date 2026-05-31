@@ -24,9 +24,9 @@ void gfx::Pipeline::dispose() {
 }
 
 void gfx::Pipeline::cleanupPipeline() {
-    VkDevice device = m_renderer->system()->device();
+    const vk::raii::Device &device = m_renderer->system()->device();
     if (device != VK_NULL_HANDLE && m_pipeline != VK_NULL_HANDLE) {
-        vkDestroyPipeline(device, m_pipeline, nullptr);
+        vkDestroyPipeline(*device, m_pipeline, nullptr);
         m_pipeline = VK_NULL_HANDLE;
     }
 }

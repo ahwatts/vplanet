@@ -24,8 +24,8 @@ namespace gfx {
 
         GLFWwindow* window() const;
         const vk::raii::Instance &instance() const;
-        VkDevice device() const;
-        VkPhysicalDevice physicalDevice() const;
+        const vk::raii::Device &device() const;
+        const vk::raii::PhysicalDevice &physicalDevice() const;
         const vk::raii::SurfaceKHR &surface() const;
         uint32_t graphicsQueueFamily() const;
         uint32_t presentQueueFamily() const;
@@ -72,11 +72,9 @@ namespace gfx {
         void initInstance();
         void initDebugCallback();
         void initSurface();
+        void initDevice();
 
-        void initDevice(bool debug);
-        void cleanupDevice();
-
-        void initAllocator(bool debug);
+        void initAllocator();
         void cleanupAllocator();
 
         void initSemaphores();
@@ -124,8 +122,8 @@ namespace gfx {
         vk::raii::Instance m_instance;
         vk::raii::DebugUtilsMessengerEXT m_debug_messenger;
         vk::raii::SurfaceKHR m_surface;
-        VkPhysicalDevice m_physical_device;
-        VkDevice m_device;
+        vk::raii::PhysicalDevice m_physical_device;
+        vk::raii::Device m_device;
         uint32_t m_graphics_queue_family, m_present_queue_family;
         VkSemaphore m_image_available_semaphore;
         VkSemaphore m_render_finished_semaphore;

@@ -46,10 +46,10 @@ void gfx::DepthBuffer::initDepthResources() {
         return;
     }
 
-    VkDevice device = m_system->device();
-    VkPhysicalDevice physical_device = m_system->physicalDevice();
+    const vk::raii::Device &device = m_system->device();
+    const vk::raii::PhysicalDevice physical_device = m_system->physicalDevice();
     VkExtent2D extent = m_system->swapchain().extent();
-    m_format = chooseDepthFormat(physical_device);
+    m_format = chooseDepthFormat(*physical_device);
 
     VkImageCreateInfo img_ci;
     img_ci.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -68,7 +68,7 @@ void gfx::DepthBuffer::initDepthResources() {
     img_ci.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     img_ci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    VkResult rslt = vkCreateImage(device, &img_ci, nullptr, &m_image);
+    VkResult rslt = vkCreateImage(*device, &img_ci, nullptr, &m_image);
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
         msg << "Unable to create depth image. Error code: " << rslt;
@@ -76,7 +76,7 @@ void gfx::DepthBuffer::initDepthResources() {
     }
 
     VkMemoryRequirements mem_reqs;
-    vkGetImageMemoryRequirements(device, m_image, &mem_reqs);
+    vkGetImageMemoryRequirements(*device, m_image, &mem_reqs);
 
     VkMemoryAllocateInfo mem_ai;
     mem_ai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -84,14 +84,14 @@ void gfx::DepthBuffer::initDepthResources() {
     mem_ai.allocationSize = mem_reqs.size;
     mem_ai.memoryTypeIndex = m_system->chooseMemoryType(mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    rslt = vkAllocateMemory(device, &mem_ai, nullptr, &m_image_memory);
+    rslt = vkAllocateMemory(*device, &mem_ai, nullptr, &m_image_memory);
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
         msg << "Unable to allocate depth image memory. Error code: " << rslt;
         throw std::runtime_error(msg.str());
     }
 
-    rslt = vkBindImageMemory(device, m_image, m_image_memory, 0);
+    rslt = vkBindImageMemory(*device, m_image, m_image_memory, 0);
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
         msg << "Unable to bind depth image memory to depth image. Error code: " << rslt;
@@ -115,7 +115,7 @@ void gfx::DepthBuffer::initDepthResources() {
     iv_ci.subresourceRange.baseArrayLayer = 0;
     iv_ci.subresourceRange.layerCount = 1;
 
-    rslt = vkCreateImageView(device, &iv_ci, nullptr, &m_image_view);
+    rslt = vkCreateImageView(*device, &iv_ci, nullptr, &m_image_view);
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
         msg << "Unable to create depth image view. Error code: " << rslt;
@@ -124,20 +124,20 @@ void gfx::DepthBuffer::initDepthResources() {
 }
 
 void gfx::DepthBuffer::cleanupDepthResources() {
-    VkDevice device = m_system->device();
+    const vk::raii::Device &device = m_system->device();
     if (device != VK_NULL_HANDLE) {
         if (m_image_view != VK_NULL_HANDLE) {
-            vkDestroyImageView(device, m_image_view, nullptr);
+            vkDestroyImageView(*device, m_image_view, nullptr);
             m_image_view = VK_NULL_HANDLE;
         }
 
         if (m_image != VK_NULL_HANDLE) {
-            vkDestroyImage(device, m_image, nullptr);
+            vkDestroyImage(*device, m_image, nullptr);
             m_image = VK_NULL_HANDLE;
         }
 
         if (m_image_memory != VK_NULL_HANDLE) {
-            vkFreeMemory(device, m_image_memory, nullptr);
+            vkFreeMemory(*device, m_image_memory, nullptr);
             m_image_memory = VK_NULL_HANDLE;
         }
     }

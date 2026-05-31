@@ -110,15 +110,15 @@ void gfx::TerrainPipeline::initShaderModules() {
 }
 
 void gfx::TerrainPipeline::cleanupShaderModules() {
-    VkDevice device = m_renderer->system()->device();
+    const vk::raii::Device &device = m_renderer->system()->device();
     if (device != VK_NULL_HANDLE) {
         if (m_vertex_shader != VK_NULL_HANDLE) {
-            vkDestroyShaderModule(device, m_vertex_shader, nullptr);
+            vkDestroyShaderModule(*device, m_vertex_shader, nullptr);
             m_vertex_shader = VK_NULL_HANDLE;
         }
 
         if (m_fragment_shader != VK_NULL_HANDLE) {
-            vkDestroyShaderModule(device, m_fragment_shader, nullptr);
+            vkDestroyShaderModule(*device, m_fragment_shader, nullptr);
             m_fragment_shader = VK_NULL_HANDLE;
         }
     }
@@ -130,7 +130,7 @@ void gfx::TerrainPipeline::initPipeline() {
     }
 
     System *system = m_renderer->system();
-    VkDevice device = system->device();
+    const vk::raii::Device &device = system->device();
     VkExtent2D extent = system->swapchain().extent();
     VkRenderPass render_pass = m_renderer->renderPass();
 
@@ -280,7 +280,7 @@ void gfx::TerrainPipeline::initPipeline() {
     pipeline_ci.basePipelineHandle = VK_NULL_HANDLE;
     pipeline_ci.basePipelineIndex = -1;
 
-    VkResult rslt = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipeline_ci, nullptr, &m_pipeline);
+    VkResult rslt = vkCreateGraphicsPipelines(*device, VK_NULL_HANDLE, 1, &pipeline_ci, nullptr, &m_pipeline);
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
         msg << "Unable to create terrain renderer pipeline. Error code: " << rslt;

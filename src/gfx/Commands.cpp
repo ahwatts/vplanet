@@ -60,7 +60,7 @@ const std::vector<VkCommandBuffer>& gfx::Commands::drawCommands() const {
 }
 
 VkCommandBuffer gfx::Commands::beginOneShot() const {
-    VkDevice device = m_system->device();
+    const vk::raii::Device &device = m_system->device();
 
     VkCommandBufferAllocateInfo cb_ai;
     cb_ai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -70,7 +70,7 @@ VkCommandBuffer gfx::Commands::beginOneShot() const {
     cb_ai.commandBufferCount = 1;
 
     VkCommandBuffer buffer;
-    VkResult rslt = vkAllocateCommandBuffers(device, &cb_ai, &buffer);
+    VkResult rslt = vkAllocateCommandBuffers(*device, &cb_ai, &buffer);
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
         msg << "Unable to allocate one-shot command buffer. Error code: " << rslt;
@@ -94,7 +94,7 @@ VkCommandBuffer gfx::Commands::beginOneShot() const {
 }
 
 void gfx::Commands::endOneShot(VkCommandBuffer buffer) const {
-    VkDevice device = m_system->device();
+    const vk::raii::Device &device = m_system->device();
     VkResult rslt = vkEndCommandBuffer(buffer);
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
@@ -127,15 +127,15 @@ void gfx::Commands::endOneShot(VkCommandBuffer buffer) const {
         throw std::runtime_error(msg.str());
     }
 
-    vkFreeCommandBuffers(device, m_pool, 1, &buffer);
+    vkFreeCommandBuffers(*device, m_pool, 1, &buffer);
 }
 
 void gfx::Commands::initQueues() {
-    VkDevice device = m_system->device();
+    const vk::raii::Device &device = m_system->device();
     uint32_t graphics_queue_family = m_system->graphicsQueueFamily();
-    vkGetDeviceQueue(device, graphics_queue_family, 0, &m_graphics_queue);
+    vkGetDeviceQueue(*device, graphics_queue_family, 0, &m_graphics_queue);
     uint32_t present_queue_family = m_system->presentQueueFamily();
-    vkGetDeviceQueue(device, present_queue_family, 0, &m_present_queue);
+    vkGetDeviceQueue(*device, present_queue_family, 0, &m_present_queue);
 }
 
 void gfx::Commands::cleanupQueues() {
@@ -148,7 +148,7 @@ void gfx::Commands::initPool() {
         return;
     }
 
-    VkDevice device = m_system->device();
+    const vk::raii::Device &device = m_system->device();
     uint32_t graphics_queue_family = m_system->graphicsQueueFamily();
 
     VkCommandPoolCreateInfo cp_ci;
@@ -157,7 +157,7 @@ void gfx::Commands::initPool() {
     cp_ci.flags = 0;
     cp_ci.queueFamilyIndex = graphics_queue_family;
 
-    VkResult rslt = vkCreateCommandPool(device, &cp_ci, nullptr, &m_pool);
+    VkResult rslt = vkCreateCommandPool(*device, &cp_ci, nullptr, &m_pool);
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
         msg << "Unable to create command buffer pool. Error code: " << rslt;
@@ -166,9 +166,9 @@ void gfx::Commands::initPool() {
 }
 
 void gfx::Commands::cleanupPool() {
-    VkDevice device = m_system->device();
+    const vk::raii::Device &device = m_system->device();
     if (device != VK_NULL_HANDLE && m_pool != VK_NULL_HANDLE) {
-        vkDestroyCommandPool(device, m_pool, nullptr);
+        vkDestroyCommandPool(*device, m_pool, nullptr);
         m_pool = VK_NULL_HANDLE;
     }
 }
@@ -178,7 +178,7 @@ void gfx::Commands::initCommandBuffers() {
         return;
     }
 
-    VkDevice device = m_system->device();
+    const vk::raii::Device &device = m_system->device();
     uint32_t num_buffers = static_cast<uint32_t>(m_system->swapchain().images().size());
     m_draw_commands.resize(num_buffers, VK_NULL_HANDLE);
 
@@ -189,7 +189,7 @@ void gfx::Commands::initCommandBuffers() {
     cb_ai.commandPool = m_pool;
     cb_ai.commandBufferCount = num_buffers;
 
-    VkResult rslt = vkAllocateCommandBuffers(device, &cb_ai, m_draw_commands.data());
+    VkResult rslt = vkAllocateCommandBuffers(*device, &cb_ai, m_draw_commands.data());
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
         msg << "Unable to allocate command buffers. Error code: " << rslt;
@@ -198,8 +198,8 @@ void gfx::Commands::initCommandBuffers() {
 }
 
 void gfx::Commands::cleanupCommandBuffers() {
-    VkDevice device = m_system->device();
+    const vk::raii::Device &device = m_system->device();
     if (device != VK_NULL_HANDLE && m_pool != VK_NULL_HANDLE && m_draw_commands.size() > 0) {
-        vkFreeCommandBuffers(device, m_pool, static_cast<uint32_t>(m_draw_commands.size()), m_draw_commands.data());
+        vkFreeCommandBuffers(*device, m_pool, static_cast<uint32_t>(m_draw_commands.size()), m_draw_commands.data());
     }
 }

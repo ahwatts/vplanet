@@ -116,7 +116,6 @@ add_executable(vplanet
     src/gfx/System.cpp
     src/gfx/TerrainPipeline.cpp
     src/gfx/Uniforms.cpp
-    src/gfx/VulkanExt.cpp
     src/Application.cpp
     src/Curve.cpp
     src/Models.cpp

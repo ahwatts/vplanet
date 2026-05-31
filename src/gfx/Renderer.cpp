@@ -110,7 +110,7 @@ void gfx::Renderer::initPipelineLayout() {
         return;
     }
 
-    VkDevice device = m_system->device();
+    const vk::raii::Device &device = m_system->device();
 
     std::array<VkDescriptorSetLayout, 2> layouts;
     layouts[0] = SceneUniformSet::descriptorSetLayout();
@@ -125,7 +125,7 @@ void gfx::Renderer::initPipelineLayout() {
     pl_ci.pushConstantRangeCount = 0;
     pl_ci.pPushConstantRanges = nullptr;
 
-    VkResult rslt = vkCreatePipelineLayout(device, &pl_ci, nullptr, &m_pipeline_layout);
+    VkResult rslt = vkCreatePipelineLayout(*device, &pl_ci, nullptr, &m_pipeline_layout);
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
         msg << "Unable to create pipeline layout. Error code: " << rslt;
@@ -134,9 +134,9 @@ void gfx::Renderer::initPipelineLayout() {
 }
 
 void gfx::Renderer::cleanupPipelineLayout() {
-    VkDevice device = m_system->device();
+    const vk::raii::Device &device = m_system->device();
     if (device != VK_NULL_HANDLE && m_pipeline_layout != VK_NULL_HANDLE) {
-        vkDestroyPipelineLayout(device, m_pipeline_layout, nullptr);
+        vkDestroyPipelineLayout(*device, m_pipeline_layout, nullptr);
         m_pipeline_layout = VK_NULL_HANDLE;
     }
 }
@@ -146,7 +146,8 @@ void gfx::Renderer::initRenderPass() {
         return;
     }
 
-    VkDevice device = m_system->device();
+    const vk::raii::Device &device = m_system->device();
+
     const Swapchain &swapchain = m_system->swapchain();
     const DepthBuffer &depth_buffer = m_system->depthBuffer();
     VkFormat color_format = swapchain.format().format;
@@ -214,7 +215,7 @@ void gfx::Renderer::initRenderPass() {
     rp_ci.dependencyCount = 1;
     rp_ci.pDependencies = &sd;
 
-    VkResult rslt = vkCreateRenderPass(device, &rp_ci, nullptr, &m_render_pass);
+    VkResult rslt = vkCreateRenderPass(*device, &rp_ci, nullptr, &m_render_pass);
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
         msg << "Unable to create render pass. Error code: " << rslt;
@@ -223,9 +224,9 @@ void gfx::Renderer::initRenderPass() {
 }
 
 void gfx::Renderer::cleanupRenderPass() {
-    VkDevice device = m_system->device();
+    const vk::raii::Device &device = m_system->device();
     if (device != VK_NULL_HANDLE && m_render_pass != VK_NULL_HANDLE) {
-        vkDestroyRenderPass(device, m_render_pass, nullptr);
+        vkDestroyRenderPass(*device, m_render_pass, nullptr);
         m_render_pass = VK_NULL_HANDLE;
     }
 }
@@ -235,7 +236,7 @@ void gfx::Renderer::initFramebuffers() {
         return;
     }
 
-    VkDevice device = m_system->device();
+    const vk::raii::Device &device = m_system->device();
     VkExtent2D extent = m_system->swapchain().extent();
     const std::vector<VkImageView> &color_buffers = m_system->swapchain().imageViews();
     const DepthBuffer &depth_buffer = m_system->depthBuffer();
@@ -258,7 +259,7 @@ void gfx::Renderer::initFramebuffers() {
         fb_ci.height = extent.height;
         fb_ci.layers = 1;
 
-        VkResult rslt = vkCreateFramebuffer(device, &fb_ci, nullptr, &m_framebuffers[i]);
+        VkResult rslt = vkCreateFramebuffer(*device, &fb_ci, nullptr, &m_framebuffers[i]);
         if (rslt != VK_SUCCESS) {
             std::stringstream msg;
             msg << "Unable to create terrain framebuffer. Error code: " << rslt;
@@ -268,10 +269,10 @@ void gfx::Renderer::initFramebuffers() {
 }
 
 void gfx::Renderer::cleanupFramebuffers() {
-    VkDevice device = m_system->device();
+    const vk::raii::Device &device = m_system->device();
     if (device != VK_NULL_HANDLE) {
         for (auto &framebuffer : m_framebuffers) {
-            vkDestroyFramebuffer(device, framebuffer, nullptr);
+            vkDestroyFramebuffer(*device, framebuffer, nullptr);
         }
     }
     m_framebuffers.clear();

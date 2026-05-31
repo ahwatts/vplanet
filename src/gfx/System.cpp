@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <format>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -18,16 +19,21 @@
 #include "Uniforms.h"
 
 struct ChosenDeviceInfo {
-    VkPhysicalDevice device;
+    const vk::raii::PhysicalDevice *device;
     uint32_t graphics_queue_family;
     uint32_t present_queue_family;
 };
 
-ChosenDeviceInfo choosePhysicalDevice(const std::vector<VkPhysicalDevice> &devices, VkSurfaceKHR surface, bool debug);
+ChosenDeviceInfo choosePhysicalDevice(const std::vector<vk::raii::PhysicalDevice> &devices, const vk::raii::SurfaceKHR &surface, bool debug);
 std::vector<const char*> requiredInstanceExtensions(bool debug);
 std::vector<const char*> requiredInstanceLayers(bool debug);
 std::vector<const char*> requiredDeviceExtensions(bool debug);
 std::vector<const char*> requiredDeviceLayers(bool debug);
+
+const char *missingRequiredExtension(const std::vector<const char *> &required, const std::vector<vk::ExtensionProperties> &all);
+bool hasExtension(const char *needle, const std::vector<vk::ExtensionProperties> &haystack);
+const char *missingRequiredLayer(const std::vector<const char *> &required, const std::vector<vk::LayerProperties> &all);
+bool hasLayer(const char *needle, const std::vector<vk::LayerProperties> &haystack);
 
 gfx::System::System(GLFWwindow *window, bool debug)
 : m_window{window},
@@ -36,8 +42,8 @@ gfx::System::System(GLFWwindow *window, bool debug)
   m_instance{nullptr},
   m_debug_messenger{nullptr},
   m_surface{nullptr},
-  m_physical_device{VK_NULL_HANDLE},
-  m_device{VK_NULL_HANDLE},
+  m_physical_device{nullptr},
+  m_device{nullptr},
   m_graphics_queue_family{UINT32_MAX},
   m_present_queue_family{UINT32_MAX},
   m_image_available_semaphore{VK_NULL_HANDLE},
@@ -57,8 +63,8 @@ gfx::System::System(GLFWwindow *window, bool debug)
     }
 
     initSurface();
-    initDevice(debug);
-    initAllocator(debug);
+    initDevice();
+    initAllocator();
     initSemaphores();
     m_swapchain.init();
     m_commands.init();
@@ -78,7 +84,6 @@ gfx::System::~System() {
     m_swapchain.dispose();
     cleanupSemaphores();
     cleanupAllocator();
-    cleanupDevice();
 }
 
 GLFWwindow* gfx::System::window() const {
@@ -89,11 +94,11 @@ const vk::raii::Instance &gfx::System::instance() const {
     return m_instance;
 }
 
-VkDevice gfx::System::device() const {
+const vk::raii::Device &gfx::System::device() const {
     return m_device;
 }
 
-VkPhysicalDevice gfx::System::physicalDevice() const {
+const vk::raii::PhysicalDevice &gfx::System::physicalDevice() const {
     return m_physical_device;
 }
 
@@ -208,14 +213,14 @@ void gfx::System::recordCommandBuffers() {
 uint32_t gfx::System::startFrame() {
     uint32_t image_index = UINT32_MAX;
 
-    VkResult rslt = vkWaitForFences(m_device, 1, &m_in_flight_fence, VK_TRUE, UINT64_MAX);
+    VkResult rslt = vkWaitForFences(*m_device, 1, &m_in_flight_fence, VK_TRUE, UINT64_MAX);
     if (rslt != VK_SUCCESS) {
         std::cerr << "Failed to wait for in-flight fence to clear: " << rslt << std::endl;
     }
-    vkResetFences(m_device, 1, &m_in_flight_fence);
+    vkResetFences(*m_device, 1, &m_in_flight_fence);
 
     rslt = vkAcquireNextImageKHR(
-        m_device,
+        *m_device,
         m_swapchain.swapchain(),
         UINT64_MAX,
         m_image_available_semaphore,
@@ -293,7 +298,7 @@ void gfx::System::waitIdle() {
 
 uint32_t gfx::System::chooseMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties) const {
     VkPhysicalDeviceMemoryProperties mem_props;
-    vkGetPhysicalDeviceMemoryProperties(m_physical_device, &mem_props);
+    vkGetPhysicalDeviceMemoryProperties(*m_physical_device, &mem_props);
 
     for (uint32_t i = 0; i < mem_props.memoryTypeCount; ++i) {
         if (type_filter & (1 << i) &&
@@ -398,7 +403,7 @@ void gfx::System::createShaderModule(const std::vector<unsigned char> &rsrc, VkS
     sm_ci.pCode = reinterpret_cast<const uint32_t*>(rsrc.data());
 
     VkShaderModule module{VK_NULL_HANDLE};
-    VkResult rslt = vkCreateShaderModule(m_device, &sm_ci, nullptr, &shader);
+    VkResult rslt = vkCreateShaderModule(*m_device, &sm_ci, nullptr, &shader);
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
         msg << "Unable to create shader module. Error code: " << rslt;
@@ -409,55 +414,16 @@ void gfx::System::createShaderModule(const std::vector<unsigned char> &rsrc, VkS
 void gfx::System::initInstance() {
     std::vector<const char*> required_extensions = requiredInstanceExtensions(m_debug);
     std::vector<vk::ExtensionProperties> extensions = m_context.enumerateInstanceExtensionProperties();
-
-    bool has_required_extensions = std::ranges::all_of(
-        required_extensions,
-        [&extensions](const char *this_req_ext) {
-            std::string_view required_ext_name{this_req_ext};
-            bool has_ext = std::ranges::any_of(
-                extensions,
-                [&required_ext_name](const vk::ExtensionProperties &this_ext) {
-                    std::string_view ext_name{this_ext.extensionName.data()};
-                    return required_ext_name == ext_name;
-                }
-            );
-
-            if (!has_ext) {
-                std::stringstream msg;
-                msg << "Required instance extension " << required_ext_name << " not supported";
-                throw std::runtime_error(msg.str());
-            } else {
-                return true;
-            }
-        }
-    );
+    const char *missing_ext = missingRequiredExtension(required_extensions, extensions);
+    if (missing_ext != nullptr) {
+        throw std::runtime_error(std::format("Required instance extension {} not supported", missing_ext));
+    }
 
     std::vector<const char *> required_layers = requiredInstanceLayers(m_debug);
     std::vector<vk::LayerProperties> layers = m_context.enumerateInstanceLayerProperties();
-    bool has_required_layers = std::ranges::all_of(
-        required_layers,
-        [&layers](const char *this_req_layer) {
-            std::string_view required_layer_name{this_req_layer};
-            bool has_layer = std::ranges::any_of(
-                layers,
-                [&required_layer_name](const vk::LayerProperties &this_layer) {
-                    std::string_view layer_name{this_layer.layerName};
-                    return required_layer_name == layer_name;
-                }
-            );
-
-            if (!has_layer) {
-                std::stringstream msg;
-                msg << "Required instance layer " << required_layer_name << " not supported";
-                throw std::runtime_error(msg.str());
-            } else {
-                return true;                
-            }
-        }
-    );
-
-    if (!(has_required_extensions && has_required_layers)) {
-        throw std::runtime_error("Not all instance extensions and layers are supported");
+    const char *missing_layer = missingRequiredLayer(required_layers, layers);
+    if (missing_layer != nullptr) {
+        throw std::runtime_error(std::format("Required instance layer {} not supported", missing_layer));
     }
 
     vk::ApplicationInfo app_info{
@@ -576,47 +542,17 @@ VKAPI_ATTR void VKAPI_CALL gfx::System::memoryAllocationCallback(
     }
 }
 
-void printMemoryTypeProperties(VkMemoryPropertyFlags flags) {
-    if (flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) {
-        std::cerr << "device local ";
-    }
-    if (flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
-        std::cerr << "host visible ";
-    }
-    if (flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) {
-        std::cerr << "host coherent ";
-    }
-    if (flags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) {
-        std::cerr << "host cached ";
-    }
-    if (flags & VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT) {
-        std::cerr << "lazily allocated ";
-    }
-    if (flags & VK_MEMORY_PROPERTY_PROTECTED_BIT) {
-        std::cerr << "protected ";
-    }
-    if (flags & VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD) {
-        std::cerr << "device coherent (AMD) ";
-    }
-    if (flags & VK_MEMORY_PROPERTY_DEVICE_UNCACHED_BIT_AMD) {
-        std::cerr << "device uncached (AMD) ";
-    }
-    if (flags & VK_MEMORY_PROPERTY_RDMA_CAPABLE_BIT_NV) {
-        std::cerr << "RDMA capable (NV) ";
-    }
-}
-
 void gfx::System::memoryAllocationCallback(
     VmaAllocator allocator,
     uint32_t memoryType,
     VkDeviceMemory memory,
-    VkDeviceSize size)
-{
-    std::cerr << "VMA Allocator: Allocating " << size << " bytes of ";
-    VkMemoryPropertyFlags flags = 0;
-    vmaGetMemoryTypeProperties(allocator, memoryType, &flags);
-    printMemoryTypeProperties(flags);
-    std::cerr << "memory\n";
+    VkDeviceSize size
+) {
+    VkMemoryPropertyFlags flags_ = 0;
+    vmaGetMemoryTypeProperties(allocator, memoryType, &flags_);
+    vk::MemoryPropertyFlags flags{flags_};
+
+    std::cerr << "VMA Allocator: Allocating " << size << " bytes of " << vk::to_string(flags) << " memory\n";
 }
 
 VKAPI_ATTR void VKAPI_CALL gfx::System::memoryFreeCallback(
@@ -624,8 +560,8 @@ VKAPI_ATTR void VKAPI_CALL gfx::System::memoryFreeCallback(
     uint32_t memoryType,
     VkDeviceMemory memory,
     VkDeviceSize size,
-    void *user_data)
-{
+    void *user_data
+) {
     if (user_data != nullptr) {
         static_cast<System*>(user_data)->memoryFreeCallback(allocator, memoryType, memory, size);
     }
@@ -635,13 +571,13 @@ void gfx::System::memoryFreeCallback(
     VmaAllocator allocator,
     uint32_t memoryType,
     VkDeviceMemory memory,
-    VkDeviceSize size)
-{
-    std::cerr << "VMA Allocator: Freeing " << size << " bytes of ";
-    VkMemoryPropertyFlags flags = 0;
-    vmaGetMemoryTypeProperties(allocator, memoryType, &flags);
-    printMemoryTypeProperties(flags);
-    std::cerr << "memory\n";
+    VkDeviceSize size
+) {
+    VkMemoryPropertyFlags flags_ = 0;
+    vmaGetMemoryTypeProperties(allocator, memoryType, &flags_);
+    vk::MemoryPropertyFlags flags{flags_};
+
+    std::cerr << "VMA Allocator: Freeing " << size << " bytes of " << vk::to_string(flags) << " memory\n";
 }
 
 void gfx::System::initSurface() {
@@ -658,103 +594,86 @@ void gfx::System::initSurface() {
     m_surface = vk::raii::SurfaceKHR(m_instance, surface);
 }
 
-void gfx::System::initDevice(bool debug) {
-    if (m_device != VK_NULL_HANDLE) {
-        return;
+void gfx::System::initDevice() {
+    assert(m_instance != nullptr);
+
+    std::vector<vk::raii::PhysicalDevice> devices = m_instance.enumeratePhysicalDevices();
+    ChosenDeviceInfo chosen_device = choosePhysicalDevice(devices, m_surface, m_debug);
+    if (chosen_device.device == nullptr) {
+        throw std::runtime_error("Unable to find a suitable physical device");
     }
+    
+    // float queue_priority = 1.0;
+    // std::vector<VkDeviceQueueCreateInfo> queue_cis{1};
+    // queue_cis[0].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    // queue_cis[0].pNext = nullptr;
+    // queue_cis[0].flags = 0;
+    // queue_cis[0].queueFamilyIndex = chosen_device.graphics_queue_family;
+    // queue_cis[0].queueCount = 1;
+    // queue_cis[0].pQueuePriorities = &queue_priority;
 
-    uint32_t num_devices;
-    vkEnumeratePhysicalDevices(*m_instance, &num_devices, nullptr);
-    std::vector<VkPhysicalDevice> devices{num_devices};
-    vkEnumeratePhysicalDevices(*m_instance, &num_devices, devices.data());
-    ChosenDeviceInfo chosen_device = choosePhysicalDevice(devices, *m_surface, debug);
-    if (chosen_device.device == VK_NULL_HANDLE) {
-        std::stringstream msg;
-        msg << "Unable to find suitable physical device";
-        throw std::runtime_error{msg.str()};
-    }
+    // if (chosen_device.graphics_queue_family != chosen_device.present_queue_family) {
+    //     queue_cis.emplace_back(VkDeviceQueueCreateInfo{});
+    //     queue_cis[1].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    //     queue_cis[1].pNext = nullptr;
+    //     queue_cis[1].flags = 0;
+    //     queue_cis[1].queueFamilyIndex = chosen_device.present_queue_family;
+    //     queue_cis[1].queueCount = 1;
+    //     queue_cis[1].pQueuePriorities = &queue_priority;
+    // }
 
-    float queue_priority = 1.0;
-    std::vector<VkDeviceQueueCreateInfo> queue_cis{1};
-    queue_cis[0].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queue_cis[0].pNext = nullptr;
-    queue_cis[0].flags = 0;
-    queue_cis[0].queueFamilyIndex = chosen_device.graphics_queue_family;
-    queue_cis[0].queueCount = 1;
-    queue_cis[0].pQueuePriorities = &queue_priority;
+    // VkPhysicalDeviceFeatures features{};
+    // features.samplerAnisotropy = VK_TRUE;
 
-    if (chosen_device.graphics_queue_family != chosen_device.present_queue_family) {
-        queue_cis.emplace_back(VkDeviceQueueCreateInfo{});
-        queue_cis[1].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        queue_cis[1].pNext = nullptr;
-        queue_cis[1].flags = 0;
-        queue_cis[1].queueFamilyIndex = chosen_device.present_queue_family;
-        queue_cis[1].queueCount = 1;
-        queue_cis[1].pQueuePriorities = &queue_priority;
-    }
+    // std::vector<const char*> extensions = requiredDeviceExtensions(debug);
+    // std::vector<const char*> layers = requiredDeviceLayers(debug);
 
-    VkPhysicalDeviceFeatures features{};
-    features.samplerAnisotropy = VK_TRUE;
+    // uint32_t num_available_extensions;
+    // vkEnumerateDeviceExtensionProperties(chosen_device.device, nullptr, &num_available_extensions, nullptr);
+    // std::vector<VkExtensionProperties> available_extensions{num_available_extensions};
+    // vkEnumerateDeviceExtensionProperties(chosen_device.device, nullptr, &num_available_extensions, available_extensions.data());
 
-    std::vector<const char*> extensions = requiredDeviceExtensions(debug);
-    std::vector<const char*> layers = requiredDeviceLayers(debug);
+    // for (auto extension : available_extensions) {
+    //     if (std::strcmp(extension.extensionName, "VK_KHR_portability_subset") == 0) {
+    //         extensions.push_back("VK_KHR_portability_subset");
+    //     }
+    // }
 
-    uint32_t num_available_extensions;
-    vkEnumerateDeviceExtensionProperties(chosen_device.device, nullptr, &num_available_extensions, nullptr);
-    std::vector<VkExtensionProperties> available_extensions{num_available_extensions};
-    vkEnumerateDeviceExtensionProperties(chosen_device.device, nullptr, &num_available_extensions, available_extensions.data());
+    // VkDeviceCreateInfo dev_ci;
+    // dev_ci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    // dev_ci.pNext = nullptr;
+    // dev_ci.flags = 0;
+    // dev_ci.pEnabledFeatures = &features;
+    // dev_ci.queueCreateInfoCount = static_cast<uint32_t>(queue_cis.size());
+    // dev_ci.pQueueCreateInfos = queue_cis.data();
+    // dev_ci.enabledLayerCount = static_cast<uint32_t>(layers.size());
+    // dev_ci.ppEnabledLayerNames = layers.empty() ? nullptr : layers.data();
+    // dev_ci.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+    // dev_ci.ppEnabledExtensionNames = extensions.empty() ? nullptr : extensions.data();
 
-    for (auto extension : available_extensions) {
-        if (std::strcmp(extension.extensionName, "VK_KHR_portability_subset") == 0) {
-            extensions.push_back("VK_KHR_portability_subset");
-        }
-    }
-
-    VkDeviceCreateInfo dev_ci;
-    dev_ci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    dev_ci.pNext = nullptr;
-    dev_ci.flags = 0;
-    dev_ci.pEnabledFeatures = &features;
-    dev_ci.queueCreateInfoCount = static_cast<uint32_t>(queue_cis.size());
-    dev_ci.pQueueCreateInfos = queue_cis.data();
-    dev_ci.enabledLayerCount = static_cast<uint32_t>(layers.size());
-    dev_ci.ppEnabledLayerNames = layers.empty() ? nullptr : layers.data();
-    dev_ci.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-    dev_ci.ppEnabledExtensionNames = extensions.empty() ? nullptr : extensions.data();
-
-    VkResult rslt = vkCreateDevice(chosen_device.device, &dev_ci, nullptr, &m_device);
-    if (rslt == VK_SUCCESS) {
-        m_physical_device = chosen_device.device;
-        m_graphics_queue_family = chosen_device.graphics_queue_family;
-        m_present_queue_family = chosen_device.present_queue_family;
-    } else {
-        std::stringstream msg;
-        msg << "Error creating Vulkan device. Error code: " << rslt;
-        throw std::runtime_error{msg.str()};
-    }
+    // VkResult rslt = vkCreateDevice(chosen_device.device, &dev_ci, nullptr, &m_device);
+    // if (rslt == VK_SUCCESS) {
+    //     m_physical_device = chosen_device.device;
+    //     m_graphics_queue_family = chosen_device.graphics_queue_family;
+    //     m_present_queue_family = chosen_device.present_queue_family;
+    // } else {
+    //     std::stringstream msg;
+    //     msg << "Error creating Vulkan device. Error code: " << rslt;
+    //     throw std::runtime_error{msg.str()};
+    // }
 }
 
-void gfx::System::cleanupDevice() {
-    if (m_device != VK_NULL_HANDLE) {
-        vkDestroyDevice(m_device, nullptr);
-        m_device = VK_NULL_HANDLE;
-        m_physical_device = VK_NULL_HANDLE;
-        m_graphics_queue_family = UINT32_MAX;
-        m_present_queue_family = UINT32_MAX;
-    }
-}
-
-void gfx::System::initAllocator(bool debug) {
+void gfx::System::initAllocator() {
     if (m_allocator == VK_NULL_HANDLE) {
         VmaAllocatorCreateInfo alloc_ci{};
         VmaDeviceMemoryCallbacks callbacks{};
 
-        alloc_ci.physicalDevice = m_physical_device;
-        alloc_ci.device = m_device;
+        alloc_ci.physicalDevice = *m_physical_device;
+        alloc_ci.device = *m_device;
         alloc_ci.instance = *m_instance;
-        alloc_ci.vulkanApiVersion = VK_API_VERSION_1_0;
+        alloc_ci.vulkanApiVersion = vk::ApiVersion14;
 
-        if (debug) {
+        if (m_debug) {
             callbacks.pfnAllocate = gfx::System::memoryAllocationCallback;
             callbacks.pfnFree = gfx::System::memoryFreeCallback;
             callbacks.pUserData = this;
@@ -783,7 +702,7 @@ void gfx::System::initSemaphores() {
         sem_ci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
         sem_ci.pNext = nullptr;
         sem_ci.flags = 0;
-        vkCreateSemaphore(m_device, &sem_ci, nullptr, &m_image_available_semaphore);
+        vkCreateSemaphore(*m_device, &sem_ci, nullptr, &m_image_available_semaphore);
     }
 
     if (m_render_finished_semaphore == VK_NULL_HANDLE) {
@@ -791,7 +710,7 @@ void gfx::System::initSemaphores() {
         sem_ci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
         sem_ci.pNext = nullptr;
         sem_ci.flags = 0;
-        vkCreateSemaphore(m_device, &sem_ci, nullptr, &m_render_finished_semaphore);
+        vkCreateSemaphore(*m_device, &sem_ci, nullptr, &m_render_finished_semaphore);
     }
 
     if (m_in_flight_fence == VK_NULL_HANDLE) {
@@ -799,138 +718,98 @@ void gfx::System::initSemaphores() {
         fence_ci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
         fence_ci.pNext = nullptr;
         fence_ci.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-        vkCreateFence(m_device, &fence_ci, nullptr, &m_in_flight_fence);
+        vkCreateFence(*m_device, &fence_ci, nullptr, &m_in_flight_fence);
     }
 }
 
 void gfx::System::cleanupSemaphores() {
     if (m_device != VK_NULL_HANDLE) {
         if (m_image_available_semaphore != VK_NULL_HANDLE) {
-            vkDestroySemaphore(m_device, m_image_available_semaphore, nullptr);
+            vkDestroySemaphore(*m_device, m_image_available_semaphore, nullptr);
             m_image_available_semaphore = VK_NULL_HANDLE;
         }
 
         if (m_render_finished_semaphore != VK_NULL_HANDLE) {
-            vkDestroySemaphore(m_device, m_render_finished_semaphore, nullptr);
+            vkDestroySemaphore(*m_device, m_render_finished_semaphore, nullptr);
             m_render_finished_semaphore = VK_NULL_HANDLE;
         }
 
         if (m_in_flight_fence != VK_NULL_HANDLE) {
-            vkDestroyFence(m_device, m_in_flight_fence, nullptr);
+            vkDestroyFence(*m_device, m_in_flight_fence, nullptr);
             m_in_flight_fence = VK_NULL_HANDLE;
         }
     }
 }
 
-ChosenDeviceInfo choosePhysicalDevice(const std::vector<VkPhysicalDevice> &devices, VkSurfaceKHR surface, bool debug) {
+ChosenDeviceInfo choosePhysicalDevice(const std::vector<vk::raii::PhysicalDevice> &devices, const vk::raii::SurfaceKHR &surface, bool debug) {
     for (auto &device : devices) {
-        // Does it have the properties we want?
-        VkPhysicalDeviceProperties properties;
-        vkGetPhysicalDeviceProperties(device, &properties);
+        vk::PhysicalDeviceProperties2 props = device.getProperties2();
 
-        // Does it support the features we want?
-        VkPhysicalDeviceFeatures features;
-        vkGetPhysicalDeviceFeatures(device, &features);
-        if (features.samplerAnisotropy != VK_TRUE) {
-            std::cerr << "Device " << properties.deviceName << " doesn't support the required features\n";
+        const auto features = device.getFeatures2<
+            vk::PhysicalDeviceFeatures2,
+            vk::PhysicalDeviceVulkan11Features,
+            vk::PhysicalDeviceVulkan13Features,
+            vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT
+        >();
+        bool supports_required_features =
+            features.get<vk::PhysicalDeviceFeatures2>().features.samplerAnisotropy &&
+            features.get<vk::PhysicalDeviceVulkan11Features>().shaderDrawParameters &&
+            features.get<vk::PhysicalDeviceVulkan13Features>().dynamicRendering &&
+            features.get<vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>().extendedDynamicState;
+        if (!supports_required_features) {
+            std::cerr << "Device " << props.properties.deviceName << " doesn't support the required features\n";
             continue;
         }
 
-        // Do we have appropriate queue families for graphics / presentation?
-        uint32_t num_queue_families, graphics_queue = UINT32_MAX, present_queue = UINT32_MAX;
-        vkGetPhysicalDeviceQueueFamilyProperties(device, &num_queue_families, nullptr);
-        std::vector<VkQueueFamilyProperties> queue_families{num_queue_families};
-        vkGetPhysicalDeviceQueueFamilyProperties(device, &num_queue_families, queue_families.data());
+        uint32_t graphics_family = UINT32_MAX, present_family = UINT32_MAX;
+        std::vector<vk::QueueFamilyProperties> queue_families = device.getQueueFamilyProperties();
         for (uint32_t id = 0; id < queue_families.size(); ++id) {
-            if (graphics_queue == UINT32_MAX && queue_families[id].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-                graphics_queue = id;
+            const vk::QueueFamilyProperties &family = queue_families[id];
+            if (graphics_family == UINT32_MAX && (family.queueFlags & vk::QueueFlagBits::eGraphics)) {
+                graphics_family = id;
             }
 
-            if (present_queue == UINT32_MAX) {
-                VkBool32 supports_present;
-                vkGetPhysicalDeviceSurfaceSupportKHR(device, id, surface, &supports_present);
-                if (supports_present == VK_TRUE) {
-                    present_queue = id;
-                }
-            }
-
-            if (graphics_queue < UINT32_MAX && present_queue < UINT32_MAX) {
-                break;
+            if (present_family == UINT32_MAX && vk::True == device.getSurfaceSupportKHR(id, *surface)) {
+                present_family = id;
             }
         }
-        if (graphics_queue == UINT32_MAX || present_queue == UINT32_MAX) {
-            std::cerr << "Device " << properties.deviceName << " doesn't have suitable graphics or present queues\n";
+        if (graphics_family == UINT32_MAX && present_family == UINT32_MAX) {
+            std::cerr << "Device " << props.properties.deviceName << " doesn't have a suitable graphics or present queue\n";
             continue;
         }
 
-        // Are the extensions / layers we want supported?
-        std::vector<const char*> wanted_extensions = requiredDeviceExtensions(debug);
-        uint32_t num_extensions;
-        vkEnumerateDeviceExtensionProperties(device, nullptr, &num_extensions, nullptr);
-        std::vector<VkExtensionProperties> extensions{num_extensions};
-        vkEnumerateDeviceExtensionProperties(device, nullptr, &num_extensions, extensions.data());
-        bool all_found = true;
-        for (auto wanted_extension_name : wanted_extensions) {
-            bool found = false;
-            std::string wanted_extension_name_str{wanted_extension_name};
-            for (auto &extension : extensions) {
-                std::string extension_name_str{extension.extensionName};
-                if (wanted_extension_name_str == extension_name_str) {
-                    found = true;
-                    break;
-                }
-            }
-
-            all_found = found && all_found;
-        }
-        if (!all_found) {
-            std::cerr << "Device " << properties.deviceName << " doesn't support all the required device extensions\n";
+        std::vector<const char*> required_extensions = requiredDeviceExtensions(debug);
+        std::vector<vk::ExtensionProperties> extensions = device.enumerateDeviceExtensionProperties();
+        const char *missing_ext = missingRequiredExtension(required_extensions, extensions);
+        if (missing_ext != nullptr) {
+            std::cerr << "Device " << props.properties.deviceName << " does not support required extension " << missing_ext << "\n";
             continue;
         }
 
-        std::vector<const char*> wanted_layers = requiredDeviceLayers(debug);
-        uint32_t num_layers;
-        vkEnumerateDeviceLayerProperties(device, &num_layers, nullptr);
-        std::vector<VkLayerProperties> layers{num_layers};
-        vkEnumerateDeviceLayerProperties(device, &num_layers, layers.data());
-        all_found = true;
-        for (auto wanted_layer_name : wanted_layers) {
-            bool found = false;
-            std::string wanted_layer_name_str{wanted_layer_name};
-            for (auto &layer : layers) {
-                std::string layer_name_str{layer.layerName};
-                if (wanted_layer_name_str == layer_name_str) {
-                    found = true;
-                    break;
-                }
-            }
-
-            all_found = found && all_found;
-        }
-        if (!all_found) {
-            std::cerr << "Device " << properties.deviceName << " doesn't support all the required device layers\n";
+        std::vector<const char *> required_layers = requiredDeviceLayers(debug);
+        std::vector<vk::LayerProperties> layers = device.enumerateDeviceLayerProperties();
+        const char *missing_layer = missingRequiredLayer(required_layers, layers);
+        if (missing_layer != nullptr) {
+            std::cerr << "Device " << props.properties.deviceName << " does not support required layer " << missing_layer << "\n";
             continue;
         }
 
-        // Are swapchains supported, and are there surface formats and present modes we can use?
-        uint32_t num_formats;
-        vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &num_formats, nullptr);
-        uint32_t num_present_modes;
-        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &num_present_modes, nullptr);
-        if (num_formats == 0 || num_present_modes == 0) {
-            std::cerr << "Device " << properties.deviceName << " has either no surface formats or no surface presentation modes\n";
+        std::vector<vk::SurfaceFormatKHR> formats = device.getSurfaceFormatsKHR(*surface);
+        std::vector<vk::PresentModeKHR> present_modes = device.getSurfacePresentModesKHR(*surface);
+        if (formats.empty() || present_modes.empty()) {
+            std::cerr << "Device " << props.properties.deviceName << " has either no surface formats or no surface presentation modes\n";
             continue;
         }
 
         return {
-            device,
-            graphics_queue,
-            present_queue,
+            &device,
+            graphics_family,
+            present_family,
         };
     }
 
     return {
-        VK_NULL_HANDLE,
+        nullptr,
         UINT32_MAX,
         UINT32_MAX,
     };
@@ -974,4 +853,56 @@ std::vector<const char*> requiredDeviceExtensions(bool debug) {
 
 std::vector<const char*> requiredDeviceLayers(bool debug) {
     return std::vector<const char*>{};
+}
+
+const char *missingRequiredExtension(const std::vector<const char *> &required, const std::vector<vk::ExtensionProperties> &all) {
+    auto rv = std::ranges::find_if(
+        required,
+        [all](const auto this_ext_name) {
+            return !hasExtension(this_ext_name, all);
+        }
+    );
+
+    if (rv == required.end()) {
+        return nullptr;
+    } else {
+        return *rv;
+    }
+}
+
+bool hasExtension(const char *needle, const std::vector<vk::ExtensionProperties> &haystack) {
+    std::string_view sv_needle{needle};
+    return std::ranges::any_of(
+        haystack,
+        [&sv_needle](const vk::ExtensionProperties &this_ext) {
+            std::string_view ext_name{this_ext.extensionName.data()};
+            return sv_needle == ext_name;
+        }
+    );
+}
+
+const char *missingRequiredLayer(const std::vector<const char *> &required, const std::vector<vk::LayerProperties> &all) {
+    auto rv = std::ranges::find_if(
+        required,
+        [all](const auto this_layer_name) {
+            return !hasLayer(this_layer_name, all);
+        }
+    );
+
+    if (rv == required.end()) {
+        return nullptr;
+    } else {
+        return *rv;
+    }
+}
+
+bool hasLayer(const char *needle, const std::vector<vk::LayerProperties> &haystack) {
+    std::string_view sv_needle{needle};
+    return std::ranges::any_of(
+        haystack,
+        [&sv_needle](const vk::LayerProperties &this_layer) {
+            std::string_view layer_name{this_layer.layerName};
+            return sv_needle == layer_name;
+        }
+    );
 }

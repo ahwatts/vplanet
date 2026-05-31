@@ -45,7 +45,7 @@ void gfx::Uniforms::initDescriptorPool() {
         return;
     }
 
-    VkDevice device = m_system->device();
+    const vk::raii::Device &device = m_system->device();
     uint32_t num_images = static_cast<uint32_t>(m_system->swapchain().images().size());
     uint32_t num_descriptors = 4 * num_images;
 
@@ -61,7 +61,7 @@ void gfx::Uniforms::initDescriptorPool() {
     dp_ci.pPoolSizes = pool_sizes.data();
     dp_ci.maxSets = num_descriptors;
 
-    VkResult rslt = vkCreateDescriptorPool(device, &dp_ci, nullptr, &m_descriptor_pool);
+    VkResult rslt = vkCreateDescriptorPool(*device, &dp_ci, nullptr, &m_descriptor_pool);
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
         msg << "Unable to create descriptor pool. Error code: " << rslt;
@@ -70,9 +70,9 @@ void gfx::Uniforms::initDescriptorPool() {
 }
 
 void gfx::Uniforms::cleanupDescriptorPool() {
-    VkDevice device = m_system->device();
+    const vk::raii::Device &device = m_system->device();
     if (device != VK_NULL_HANDLE && m_descriptor_pool != VK_NULL_HANDLE) {
-        vkDestroyDescriptorPool(device, m_descriptor_pool, nullptr);
+        vkDestroyDescriptorPool(*device, m_descriptor_pool, nullptr);
         m_descriptor_pool = VK_NULL_HANDLE;
     }
 }
@@ -145,7 +145,7 @@ void gfx::SceneUniformSet::initDescriptorSetLayout(System *gfx) {
         return;
     }
 
-    VkDevice device = gfx->device();
+    const vk::raii::Device &device = gfx->device();
 
     std::array<VkDescriptorSetLayoutBinding, 2> bindings;
     bindings[0].binding = 0;
@@ -167,7 +167,7 @@ void gfx::SceneUniformSet::initDescriptorSetLayout(System *gfx) {
     dsl_ci.bindingCount = static_cast<uint32_t>(bindings.size());
     dsl_ci.pBindings = bindings.data();
 
-    VkResult rslt = vkCreateDescriptorSetLayout(device, &dsl_ci, nullptr, &c_descriptor_set_layout);
+    VkResult rslt = vkCreateDescriptorSetLayout(*device, &dsl_ci, nullptr, &c_descriptor_set_layout);
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
         msg << "Unable to create descriptor set layout. Error code: " << rslt;
@@ -176,9 +176,9 @@ void gfx::SceneUniformSet::initDescriptorSetLayout(System *gfx) {
 }
 
 void gfx::SceneUniformSet::cleanupDescriptorSetLayout(System *gfx) {
-    VkDevice device = gfx->device();
+    const vk::raii::Device &device = gfx->device();
     if (device != VK_NULL_HANDLE && c_descriptor_set_layout != VK_NULL_HANDLE) {
-        vkDestroyDescriptorSetLayout(device, c_descriptor_set_layout, nullptr);
+        vkDestroyDescriptorSetLayout(*device, c_descriptor_set_layout, nullptr);
         c_descriptor_set_layout = VK_NULL_HANDLE;
     }
 }
@@ -239,7 +239,6 @@ void gfx::SceneUniformSet::updateLightListBuffer(uint32_t buffer_index) {
 
 void gfx::SceneUniformSet::initUniformBuffers() {
     System *gfx = m_uniforms->system();
-    VkDevice device = gfx->device();
 
     if (m_view_projection_buffers.empty()) {
         uint32_t num_buffers = static_cast<uint32_t>(gfx->swapchain().imageViews().size());
@@ -295,7 +294,7 @@ void gfx::SceneUniformSet::initDescriptorSets() {
     }
 
     System *gfx = m_uniforms->system();
-    VkDevice device = gfx->device();
+    const vk::raii::Device &device = gfx->device();
     uint32_t num_images = static_cast<uint32_t>(gfx->swapchain().images().size());
 
     std::vector<VkDescriptorSetLayout> layouts{num_images, c_descriptor_set_layout};
@@ -308,7 +307,7 @@ void gfx::SceneUniformSet::initDescriptorSets() {
     ds_ai.descriptorSetCount = num_images;
     ds_ai.pSetLayouts = layouts.data();
 
-    VkResult rslt = vkAllocateDescriptorSets(device, &ds_ai, m_descriptor_sets.data());
+    VkResult rslt = vkAllocateDescriptorSets(*device, &ds_ai, m_descriptor_sets.data());
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
         msg << "Unable to allocate descriptor sets. Error code: " << rslt;
@@ -350,7 +349,7 @@ void gfx::SceneUniformSet::initDescriptorSets() {
         dsc_writes[1].pImageInfo = nullptr;
         dsc_writes[1].pTexelBufferView = nullptr;
 
-        vkUpdateDescriptorSets(device, static_cast<uint32_t>(dsc_writes.size()), dsc_writes.data(), 0, nullptr);
+        vkUpdateDescriptorSets(*device, static_cast<uint32_t>(dsc_writes.size()), dsc_writes.data(), 0, nullptr);
     }
 }
 
@@ -382,7 +381,7 @@ void gfx::ModelUniformSet::initDescriptorSetLayout(System *gfx) {
         return;
     }
 
-    VkDevice device = gfx->device();
+    const vk::raii::Device &device = gfx->device();
 
     std::array<VkDescriptorSetLayoutBinding, 1> bindings;
     bindings[0].binding = 0;
@@ -398,7 +397,7 @@ void gfx::ModelUniformSet::initDescriptorSetLayout(System *gfx) {
     dsl_ci.bindingCount = static_cast<uint32_t>(bindings.size());
     dsl_ci.pBindings = bindings.data();
 
-    VkResult rslt = vkCreateDescriptorSetLayout(device, &dsl_ci, nullptr, &c_descriptor_set_layout);
+    VkResult rslt = vkCreateDescriptorSetLayout(*device, &dsl_ci, nullptr, &c_descriptor_set_layout);
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
         msg << "Unable to create descriptor set layout. Error code: " << rslt;
@@ -407,9 +406,9 @@ void gfx::ModelUniformSet::initDescriptorSetLayout(System *gfx) {
 }
 
 void gfx::ModelUniformSet::cleanupDescriptorSetLayout(System *gfx) {
-    VkDevice device = gfx->device();
+    const vk::raii::Device &device = gfx->device();
     if (device != VK_NULL_HANDLE && c_descriptor_set_layout != VK_NULL_HANDLE) {
-        vkDestroyDescriptorSetLayout(device, c_descriptor_set_layout, nullptr);
+        vkDestroyDescriptorSetLayout(*device, c_descriptor_set_layout, nullptr);
         c_descriptor_set_layout = VK_NULL_HANDLE;
     }
 }
@@ -440,7 +439,6 @@ void gfx::ModelUniformSet::updateModelBuffer(uint32_t buffer_index) {
 
 void gfx::ModelUniformSet::initUniformBuffers() {
     System *gfx = m_uniforms->system();
-    VkDevice device = gfx->device();
 
     if (m_model_buffers.empty()) {
         uint32_t num_buffers = static_cast<uint32_t>(gfx->swapchain().imageViews().size());
@@ -475,7 +473,7 @@ void gfx::ModelUniformSet::initDescriptorSets() {
     }
 
     System *gfx = m_uniforms->system();
-    VkDevice device = gfx->device();
+    const vk::raii::Device &device = gfx->device();
     uint32_t num_images = static_cast<uint32_t>(gfx->swapchain().images().size());
 
     std::vector<VkDescriptorSetLayout> layouts{num_images, c_descriptor_set_layout};
@@ -488,7 +486,7 @@ void gfx::ModelUniformSet::initDescriptorSets() {
     ds_ai.descriptorSetCount = num_images;
     ds_ai.pSetLayouts = layouts.data();
 
-    VkResult rslt = vkAllocateDescriptorSets(device, &ds_ai, m_descriptor_sets.data());
+    VkResult rslt = vkAllocateDescriptorSets(*device, &ds_ai, m_descriptor_sets.data());
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
         msg << "Unable to allocate descriptor sets. Error code: " << rslt;
@@ -513,6 +511,6 @@ void gfx::ModelUniformSet::initDescriptorSets() {
         dsc_writes[0].pImageInfo = nullptr;
         dsc_writes[0].pTexelBufferView = nullptr;
 
-        vkUpdateDescriptorSets(device, static_cast<uint32_t>(dsc_writes.size()), dsc_writes.data(), 0, nullptr);
+        vkUpdateDescriptorSets(*device, static_cast<uint32_t>(dsc_writes.size()), dsc_writes.data(), 0, nullptr);
     }
 }

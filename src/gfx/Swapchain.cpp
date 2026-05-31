@@ -61,24 +61,24 @@ void gfx::Swapchain::initSwapchain() {
     }
 
     GLFWwindow *window = m_system->window();
-    VkDevice device = m_system->device();
-    VkPhysicalDevice physical_device = m_system->physicalDevice();
+    const vk::raii::Device &device = m_system->device();
+    const vk::raii::PhysicalDevice &physical_device = m_system->physicalDevice();
     const vk::raii::SurfaceKHR &surface = m_system->surface();
     uint32_t graphics_queue_family = m_system->graphicsQueueFamily();
     uint32_t present_queue_family = m_system->presentQueueFamily();
 
     VkSurfaceCapabilitiesKHR surf_caps;
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, *surface, &surf_caps);
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(*physical_device, *surface, &surf_caps);
 
     uint32_t num_surface_formats;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, *surface, &num_surface_formats, nullptr);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(*physical_device, *surface, &num_surface_formats, nullptr);
     std::vector<VkSurfaceFormatKHR> surface_formats{num_surface_formats};
-    vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, *surface, &num_surface_formats, surface_formats.data());
+    vkGetPhysicalDeviceSurfaceFormatsKHR(*physical_device, *surface, &num_surface_formats, surface_formats.data());
 
     uint32_t num_present_modes;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, *surface, &num_present_modes, nullptr);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(*physical_device, *surface, &num_present_modes, nullptr);
     std::vector<VkPresentModeKHR> present_modes{num_present_modes};
-    vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, *surface, &num_present_modes, present_modes.data());
+    vkGetPhysicalDeviceSurfacePresentModesKHR(*physical_device, *surface, &num_present_modes, present_modes.data());
 
     m_extent = chooseSwapchainExtent(window, surf_caps);
     m_format = chooseSwapchainFormat(surface_formats);
@@ -113,7 +113,7 @@ void gfx::Swapchain::initSwapchain() {
     swap_ci.clipped = VK_TRUE;
     swap_ci.oldSwapchain = m_swapchain;
 
-    VkResult rslt = vkCreateSwapchainKHR(device, &swap_ci, nullptr, &m_swapchain);
+    VkResult rslt = vkCreateSwapchainKHR(*device, &swap_ci, nullptr, &m_swapchain);
     if (rslt != VK_SUCCESS) {
         std::stringstream msg{};
         msg << "Could not (re-)create swapchain. Error code: " << rslt;
@@ -122,10 +122,10 @@ void gfx::Swapchain::initSwapchain() {
 }
 
 void gfx::Swapchain::cleanupSwapchain() {
-    VkDevice device = m_system->device();
+    const vk::raii::Device &device = m_system->device();
 
     if (device != VK_NULL_HANDLE && m_swapchain != VK_NULL_HANDLE) {
-        vkDestroySwapchainKHR(device, m_swapchain, nullptr);
+        vkDestroySwapchainKHR(*device, m_swapchain, nullptr);
         m_swapchain = VK_NULL_HANDLE;
         m_extent = {0, 0};
         m_format = {VK_FORMAT_UNDEFINED, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
@@ -137,13 +137,13 @@ void gfx::Swapchain::initImageViews() {
         return;
     }
 
-    VkDevice device = m_system->device();
+    const vk::raii::Device &device = m_system->device();
 
     uint32_t num_swapchain_images;
-    vkGetSwapchainImagesKHR(device, m_swapchain, &num_swapchain_images, nullptr);
+    vkGetSwapchainImagesKHR(*device, m_swapchain, &num_swapchain_images, nullptr);
     m_images.resize(num_swapchain_images, VK_NULL_HANDLE);
     m_image_views.resize(num_swapchain_images, VK_NULL_HANDLE);
-    vkGetSwapchainImagesKHR(device, m_swapchain, &num_swapchain_images, m_images.data());
+    vkGetSwapchainImagesKHR(*device, m_swapchain, &num_swapchain_images, m_images.data());
 
     for (unsigned int i = 0; i < num_swapchain_images; ++i) {
         VkImageViewCreateInfo iv_ci;
@@ -163,7 +163,7 @@ void gfx::Swapchain::initImageViews() {
         iv_ci.subresourceRange.baseArrayLayer = 0;
         iv_ci.subresourceRange.layerCount = 1;
 
-        VkResult rslt = vkCreateImageView(device, &iv_ci, nullptr, &m_image_views[i]);
+        VkResult rslt = vkCreateImageView(*device, &iv_ci, nullptr, &m_image_views[i]);
         if (rslt != VK_SUCCESS) {
             std::stringstream msg{};
             msg << "Could not create swapchain image view. Error code: " << rslt;
@@ -173,11 +173,11 @@ void gfx::Swapchain::initImageViews() {
 }
 
 void gfx::Swapchain::cleanupImageViews() {
-    VkDevice device = m_system->device();
+    const vk::raii::Device &device = m_system->device();
 
     if (device != VK_NULL_HANDLE) {
         for (auto &view : m_image_views) {
-            vkDestroyImageView(device, view, nullptr);
+            vkDestroyImageView(*device, view, nullptr);
         }
     }
 
