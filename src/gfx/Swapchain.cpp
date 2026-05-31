@@ -7,43 +7,52 @@
 #include "Swapchain.h"
 #include "System.h"
 
-VkExtent2D chooseSwapchainExtent(GLFWwindow *window, VkSurfaceCapabilitiesKHR &surf_caps);
-VkSurfaceFormatKHR chooseSwapchainFormat(const std::vector<VkSurfaceFormatKHR> &formats);
-uint32_t chooseImageCount(VkSurfaceCapabilitiesKHR &surf_caps);
-VkPresentModeKHR choosePresentMode(const std::vector<VkPresentModeKHR> &modes);
+vk::Extent2D chooseSwapchainExtent(GLFWwindow *window, vk::SurfaceCapabilitiesKHR &surf_caps);
+vk::SurfaceFormatKHR chooseSwapchainFormat(const std::vector<vk::SurfaceFormatKHR> &formats);
+uint32_t chooseImageCount(vk::SurfaceCapabilitiesKHR &surf_caps);
+vk::PresentModeKHR choosePresentMode(const std::vector<vk::PresentModeKHR> &modes);
 
-gfx::Swapchain::Swapchain(System *system)
-    : m_system{system},
-      m_swapchain{VK_NULL_HANDLE},
-      m_images{},
-      m_image_views{},
-      m_format{VK_FORMAT_UNDEFINED, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR},
-      m_extent{0, 0}
+gfx::Swapchain::Swapchain()
+: m_system{nullptr},
+  m_swapchain{nullptr},
+  m_images{},
+  m_image_views{},
+  m_format{vk::Format::eUndefined, vk::ColorSpaceKHR::eSrgbNonlinear},
+  m_extent{0, 0}
 {}
 
-gfx::Swapchain::~Swapchain() {
-    dispose();
-}
-
-void gfx::Swapchain::init() {
+gfx::Swapchain::Swapchain(System *system) : Swapchain() {
+    m_system = system;
     initSwapchain();
     initImageViews();
 }
 
-void gfx::Swapchain::dispose() {
-    cleanupImageViews();
-    cleanupSwapchain();
+gfx::Swapchain::Swapchain(Swapchain &&other) : Swapchain() {
+    *this = std::move(other);
 }
 
-VkSwapchainKHR gfx::Swapchain::swapchain() const {
+gfx::Swapchain::~Swapchain() {}
+
+gfx::Swapchain &gfx::Swapchain::operator=(Swapchain &&other) {
+    m_system = other.m_system;
+    std::swap(m_swapchain, other.m_swapchain);
+    std::swap(m_images, other.m_images);
+    std::swap(m_image_views, other.m_image_views);
+    m_format = other.m_format;
+    m_extent = other.m_extent;
+    return *this;
+}
+
+const vk::raii::SwapchainKHR &gfx::Swapchain::swapchain() const
+{
     return m_swapchain;
 }
 
-const std::vector<VkImage>& gfx::Swapchain::images() const {
+const std::vector<vk::Image>& gfx::Swapchain::images() const {
     return m_images;
 }
 
-const std::vector<VkImageView>& gfx::Swapchain::imageViews() const {
+const std::vector<vk::raii::ImageView>& gfx::Swapchain::imageViews() const {
     return m_image_views;
 }
 
@@ -51,19 +60,15 @@ uint32_t gfx::Swapchain::imageCount() const {
     return static_cast<uint32_t>(m_images.size());
 }
 
-VkSurfaceFormatKHR gfx::Swapchain::format() const {
+vk::SurfaceFormatKHR gfx::Swapchain::format() const {
     return m_format;
 }
 
-VkExtent2D gfx::Swapchain::extent() const {
+vk::Extent2D gfx::Swapchain::extent() const {
     return m_extent;
 }
 
 void gfx::Swapchain::initSwapchain() {
-    if (m_swapchain != VK_NULL_HANDLE) {
-        return;
-    }
-
     GLFWwindow *window = m_system->window();
     const vk::raii::Device &device = m_system->device();
     const vk::raii::PhysicalDevice &physical_device = m_system->physicalDevice();
@@ -71,169 +76,115 @@ void gfx::Swapchain::initSwapchain() {
     uint32_t graphics_queue_family = m_system->graphicsQueueFamily();
     uint32_t present_queue_family = m_system->presentQueueFamily();
 
-    VkSurfaceCapabilitiesKHR surf_caps;
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(*physical_device, *surface, &surf_caps);
-
-    uint32_t num_surface_formats;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(*physical_device, *surface, &num_surface_formats, nullptr);
-    std::vector<VkSurfaceFormatKHR> surface_formats{num_surface_formats};
-    vkGetPhysicalDeviceSurfaceFormatsKHR(*physical_device, *surface, &num_surface_formats, surface_formats.data());
-
-    uint32_t num_present_modes;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(*physical_device, *surface, &num_present_modes, nullptr);
-    std::vector<VkPresentModeKHR> present_modes{num_present_modes};
-    vkGetPhysicalDeviceSurfacePresentModesKHR(*physical_device, *surface, &num_present_modes, present_modes.data());
+    vk::SurfaceCapabilitiesKHR surf_caps = physical_device.getSurfaceCapabilitiesKHR(*surface);
+    std::vector<vk::SurfaceFormatKHR> formats = physical_device.getSurfaceFormatsKHR(*surface);
+    std::vector<vk::PresentModeKHR> modes = physical_device.getSurfacePresentModesKHR(*surface);
 
     m_extent = chooseSwapchainExtent(window, surf_caps);
-    m_format = chooseSwapchainFormat(surface_formats);
+    m_format = chooseSwapchainFormat(formats);
     uint32_t image_count = chooseImageCount(surf_caps);
-    VkPresentModeKHR present_mode = choosePresentMode(present_modes);
+    vk::PresentModeKHR present_mode = choosePresentMode(modes);
 
     std::vector<uint32_t> queue_families{};
-    VkSharingMode sharing_mode = VK_SHARING_MODE_EXCLUSIVE;
+    vk::SharingMode sharing_mode = vk::SharingMode::eExclusive;
     queue_families.push_back(graphics_queue_family);
     if (graphics_queue_family != present_queue_family) {
         queue_families.push_back(present_queue_family);
-        sharing_mode = VK_SHARING_MODE_CONCURRENT;
+        sharing_mode = vk::SharingMode::eConcurrent;
     }
 
-    VkSwapchainCreateInfoKHR swap_ci;
-    swap_ci.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    swap_ci.pNext = nullptr;
-    swap_ci.flags = 0;
-    swap_ci.surface = *surface;
-    swap_ci.minImageCount = image_count;
-    swap_ci.imageFormat = m_format.format;
-    swap_ci.imageColorSpace = m_format.colorSpace;
-    swap_ci.imageExtent = m_extent;
-    swap_ci.imageArrayLayers = 1;
-    swap_ci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-    swap_ci.imageSharingMode = sharing_mode;
-    swap_ci.queueFamilyIndexCount = static_cast<uint32_t>(queue_families.size());
-    swap_ci.pQueueFamilyIndices = queue_families.data();
-    swap_ci.preTransform = surf_caps.currentTransform;
-    swap_ci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-    swap_ci.presentMode = present_mode;
-    swap_ci.clipped = VK_TRUE;
-    swap_ci.oldSwapchain = m_swapchain;
+    vk::SwapchainCreateInfoKHR swap_ci = vk::SwapchainCreateInfoKHR{
+        .surface = *surface,
+        .minImageCount = image_count,
+        .imageFormat = m_format.format,
+        .imageColorSpace = m_format.colorSpace,
+        .imageExtent = m_extent,
+        .imageArrayLayers = 1,
+        .imageUsage = vk::ImageUsageFlagBits::eColorAttachment,
+        .imageSharingMode = sharing_mode,
+        .preTransform = surf_caps.currentTransform,
+        .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque,
+        .presentMode = present_mode,
+        .clipped = vk::True,
+        .oldSwapchain = *m_swapchain,
+    }.setQueueFamilyIndices(queue_families);
 
-    VkResult rslt = vkCreateSwapchainKHR(*device, &swap_ci, nullptr, &m_swapchain);
-    if (rslt != VK_SUCCESS) {
-        std::stringstream msg{};
-        msg << "Could not (re-)create swapchain. Error code: " << rslt;
-        throw std::runtime_error(msg.str());
-    }
-}
-
-void gfx::Swapchain::cleanupSwapchain() {
-    const vk::raii::Device &device = m_system->device();
-
-    if (device != VK_NULL_HANDLE && m_swapchain != VK_NULL_HANDLE) {
-        vkDestroySwapchainKHR(*device, m_swapchain, nullptr);
-        m_swapchain = VK_NULL_HANDLE;
-        m_extent = {0, 0};
-        m_format = {VK_FORMAT_UNDEFINED, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
-    }
+    m_swapchain = device.createSwapchainKHR(swap_ci);
 }
 
 void gfx::Swapchain::initImageViews() {
-    if (m_images.size() > 0) {
-        return;
-    }
-
     const vk::raii::Device &device = m_system->device();
 
-    uint32_t num_swapchain_images;
-    vkGetSwapchainImagesKHR(*device, m_swapchain, &num_swapchain_images, nullptr);
-    m_images.resize(num_swapchain_images, VK_NULL_HANDLE);
-    m_image_views.resize(num_swapchain_images, VK_NULL_HANDLE);
-    vkGetSwapchainImagesKHR(*device, m_swapchain, &num_swapchain_images, m_images.data());
-
-    for (unsigned int i = 0; i < num_swapchain_images; ++i) {
-        VkImageViewCreateInfo iv_ci;
-        iv_ci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        iv_ci.pNext = nullptr;
-        iv_ci.flags = 0;
-        iv_ci.image = m_images[i];
-        iv_ci.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        iv_ci.format = m_format.format;
-        iv_ci.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-        iv_ci.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-        iv_ci.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-        iv_ci.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-        iv_ci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        iv_ci.subresourceRange.baseMipLevel = 0;
-        iv_ci.subresourceRange.levelCount = 1;
-        iv_ci.subresourceRange.baseArrayLayer = 0;
-        iv_ci.subresourceRange.layerCount = 1;
-
-        VkResult rslt = vkCreateImageView(*device, &iv_ci, nullptr, &m_image_views[i]);
-        if (rslt != VK_SUCCESS) {
-            std::stringstream msg{};
-            msg << "Could not create swapchain image view. Error code: " << rslt;
-            throw std::runtime_error(msg.str());
+    vk::ImageViewCreateInfo iv_ci{
+        .viewType = vk::ImageViewType::e2D,
+        .format = m_format.format,
+        .components = {
+            .r = vk::ComponentSwizzle::eIdentity,
+            .g = vk::ComponentSwizzle::eIdentity,
+            .b = vk::ComponentSwizzle::eIdentity,
+            .a = vk::ComponentSwizzle::eIdentity,
+        },
+        .subresourceRange = {
+            .aspectMask = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
         }
+    };
+
+    m_images = m_swapchain.getImages();
+    for (auto &image : m_images) {
+        iv_ci.setImage(image);
+        m_image_views.emplace_back(device, iv_ci);
     }
 }
 
-void gfx::Swapchain::cleanupImageViews() {
-    const vk::raii::Device &device = m_system->device();
-
-    if (device != VK_NULL_HANDLE) {
-        for (auto &view : m_image_views) {
-            vkDestroyImageView(*device, view, nullptr);
-        }
-    }
-
-    m_images.clear();
-    m_image_views.clear();
-}
-
-VkExtent2D chooseSwapchainExtent(GLFWwindow *window, VkSurfaceCapabilitiesKHR &surf_caps) {
+vk::Extent2D chooseSwapchainExtent(GLFWwindow *window, vk::SurfaceCapabilitiesKHR &surf_caps) {
     if (surf_caps.currentExtent.width != UINT32_MAX) {
         return surf_caps.currentExtent;
     }
 
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
-
-    VkExtent2D extent = { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
-    extent.width  = std::max(surf_caps.minImageExtent.width,  std::min(surf_caps.maxImageExtent.width,  extent.width));
-    extent.height = std::max(surf_caps.minImageExtent.height, std::min(surf_caps.maxImageExtent.height, extent.height));
-    return extent;
+    return {
+        std::clamp<uint32_t>(width, surf_caps.minImageExtent.width, surf_caps.maxImageExtent.width),
+        std::clamp<uint32_t>(height, surf_caps.minImageExtent.height, surf_caps.maxImageExtent.height),
+    };
 }
 
-VkSurfaceFormatKHR chooseSwapchainFormat(const std::vector<VkSurfaceFormatKHR> &formats) {
+vk::SurfaceFormatKHR chooseSwapchainFormat(const std::vector<vk::SurfaceFormatKHR> &formats) {
+    assert(!formats.empty());
+
     // If the device doesn't care, go with what we want.
-    if (formats.size() == 1 && formats[0].format == VK_FORMAT_UNDEFINED) {
-        return {VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
+    if (formats.size() == 1 && formats[0].format == vk::Format::eUndefined) {
+        return {vk::Format::eB8G8R8A8Srgb, vk::ColorSpaceKHR::eSrgbNonlinear};
     }
 
     // If what we want is available, use it.
-    for (auto &format : formats) {
-        if (format.format == VK_FORMAT_B8G8R8A8_UNORM && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
-            return format;
+    auto format = std::ranges::find_if(
+        formats,
+        [](const auto &f) {
+            return f.format == vk::Format::eB8G8R8A8Srgb && f.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear;
         }
-    }
+    );
 
     // Otherwise, go with the first one?
-    return formats[0];
+    return format == formats.end() ? formats[0] : *format;
 }
 
-uint32_t chooseImageCount(VkSurfaceCapabilitiesKHR &surf_caps) {
-    uint32_t image_count = surf_caps.minImageCount + 1;
+uint32_t chooseImageCount(vk::SurfaceCapabilitiesKHR &surf_caps) {
+    uint32_t image_count = std::max(3u, surf_caps.minImageCount);
     if (surf_caps.maxImageCount > 0 && image_count > surf_caps.maxImageCount) {
         image_count = surf_caps.maxImageCount;
     }
     return image_count;
 }
 
-VkPresentModeKHR choosePresentMode(const std::vector<VkPresentModeKHR> &modes) {
-    for (auto &mode : modes) {
-        if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
-            return mode;
-        }
+vk::PresentModeKHR choosePresentMode(const std::vector<vk::PresentModeKHR> &modes) {
+    if (std::ranges::contains(modes, vk::PresentModeKHR::eMailbox)) {
+        return vk::PresentModeKHR::eMailbox;
+    } else {
+        return vk::PresentModeKHR::eFifo;
     }
-
-    return VK_PRESENT_MODE_FIFO_KHR;
 }

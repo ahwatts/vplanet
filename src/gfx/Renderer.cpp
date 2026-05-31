@@ -150,7 +150,7 @@ void gfx::Renderer::initRenderPass() {
 
     const Swapchain &swapchain = m_system->swapchain();
     const DepthBuffer &depth_buffer = m_system->depthBuffer();
-    VkFormat color_format = swapchain.format().format;
+    VkFormat color_format = static_cast<VkFormat>(swapchain.format().format);
     VkFormat depth_format = depth_buffer.format();
 
     VkAttachmentDescription attachments[2];
@@ -238,13 +238,13 @@ void gfx::Renderer::initFramebuffers() {
 
     const vk::raii::Device &device = m_system->device();
     VkExtent2D extent = m_system->swapchain().extent();
-    const std::vector<VkImageView> &color_buffers = m_system->swapchain().imageViews();
+    const std::vector<vk::raii::ImageView> &color_buffers = m_system->swapchain().imageViews();
     const DepthBuffer &depth_buffer = m_system->depthBuffer();
 
     m_framebuffers.resize(color_buffers.size());
     for (uint32_t i = 0; i < color_buffers.size(); ++i) {
         std::array<VkImageView, 2> attachments{
-            color_buffers[i],
+            *color_buffers[i],
             depth_buffer.imageView(),
         };
 

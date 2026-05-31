@@ -11,32 +11,32 @@ namespace gfx {
 
     class Swapchain {
     public:
+        Swapchain();
         Swapchain(System *system);
+        Swapchain(const Swapchain &other) = delete;
+        Swapchain(Swapchain &&other);
         ~Swapchain();
 
-        void init();
-        void dispose();
+        Swapchain &operator=(const Swapchain &other) = delete;
+        Swapchain &operator=(Swapchain &&other);
 
-        VkSwapchainKHR swapchain() const;
-        const std::vector<VkImage>& images() const;
-        const std::vector<VkImageView>& imageViews() const;
+        const vk::raii::SwapchainKHR& swapchain() const;
+        const std::vector<vk::Image>& images() const;
+        const std::vector<vk::raii::ImageView>& imageViews() const;
         uint32_t imageCount() const;
-        VkSurfaceFormatKHR format() const;
-        VkExtent2D extent() const;
+        vk::SurfaceFormatKHR format() const;
+        vk::Extent2D extent() const;
 
     private:
         void initSwapchain();
-        void cleanupSwapchain();
-
         void initImageViews();
-        void cleanupImageViews();
 
         System *m_system;
-        VkSwapchainKHR m_swapchain;
-        std::vector<VkImage> m_images;
-        std::vector<VkImageView> m_image_views;
-        VkSurfaceFormatKHR m_format;
-        VkExtent2D m_extent;
+        vk::raii::SwapchainKHR m_swapchain;
+        std::vector<vk::Image> m_images;
+        std::vector<vk::raii::ImageView> m_image_views;
+        vk::SurfaceFormatKHR m_format;
+        vk::Extent2D m_extent;
     };
 }
 

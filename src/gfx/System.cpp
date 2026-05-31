@@ -52,7 +52,7 @@ gfx::System::System(GLFWwindow *window, bool debug)
   m_draw_fences{},
   m_allocator{VK_NULL_HANDLE},
   m_commands{this},
-  m_swapchain{this},
+  m_swapchain{},
   m_depth_buffer{this},
   m_renderer{this},
   m_uniforms{this}
@@ -66,7 +66,7 @@ gfx::System::System(GLFWwindow *window, bool debug)
     initSurface();
     initDevice();
     initAllocator();
-    m_swapchain.init();
+    m_swapchain = Swapchain(this);
     initSynchronizationObjects();
     m_commands.init();
     m_depth_buffer.init();
@@ -82,7 +82,6 @@ gfx::System::~System() {
     m_uniforms.dispose();
     m_depth_buffer.dispose();
     m_commands.dispose();
-    m_swapchain.dispose();
     cleanupAllocator();
 }
 
@@ -223,7 +222,7 @@ uint32_t gfx::System::startFrame() {
 
     rslt = vk::Result(vkAcquireNextImageKHR(
         *m_device,
-        m_swapchain.swapchain(),
+        *m_swapchain.swapchain(),
         UINT64_MAX,
         *present_complete,
         VK_NULL_HANDLE,
@@ -270,7 +269,7 @@ void gfx::System::drawFrame(uint32_t image_index) {
 
 void gfx::System::presentFrame(uint32_t image_index) {
     vk::raii::Semaphore &render_finished = m_render_finished_semaphores[image_index];
-    VkSwapchainKHR swapchain = m_swapchain.swapchain();
+    VkSwapchainKHR swapchain = *m_swapchain.swapchain();
 
     std::array<VkSemaphore, 1> wait_semaphores{*render_finished};
     VkPresentInfoKHR pi;
