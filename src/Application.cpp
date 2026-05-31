@@ -15,19 +15,11 @@ Application::Application(GLFWwindow *window)
     : m_window{window},
       m_window_width{0},
       m_window_height{0},
-      m_gfx{window}
+      m_gfx{window, true}
 {
     glfwGetFramebufferSize(window, &m_window_width, &m_window_height);
     glfwSetWindowUserPointer(m_window, this);
     glfwSetKeyCallback(m_window, keypressCallback);
-}
-
-Application::~Application() {
-    dispose();
-}
-
-void Application::init() {
-    m_gfx.init(true);
 
     const Perlin base_noise{2.0, 2.0, 2.0};
     const Octave octave_noise{base_noise, 4, 0.3};
@@ -71,9 +63,7 @@ void Application::init() {
     m_gfx.recordCommandBuffers();
 }
 
-void Application::dispose() {
-    m_gfx.dispose();
-}
+Application::~Application() {}
 
 void Application::run() {
     glm::mat4x4 model;

@@ -12,9 +12,6 @@ public:
     Application(GLFWwindow *window);
     ~Application();
 
-    void init();
-    void dispose();
-
     void run();
 
     static void keypressCallback(GLFWwindow *window, int key, int scancode, int action, int mods);

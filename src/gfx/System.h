@@ -19,14 +19,11 @@
 namespace gfx {
     class System {
     public:
-        System(GLFWwindow *window);
+        System(GLFWwindow *window, bool debug);
         ~System();
 
-        void init(bool debug);
-        void dispose();
-
         GLFWwindow* window() const;
-        VkInstance instance() const;
+        const vk::raii::Instance &instance() const;
         VkDevice device() const;
         VkPhysicalDevice physicalDevice() const;
         VkSurfaceKHR surface() const;
@@ -72,8 +69,7 @@ namespace gfx {
         void createShaderModule(const std::vector<unsigned char> &rsrc, VkShaderModule &shader);
 
     private:
-        void initInstance(bool debug);
-        void cleanupInstance();
+        void initInstance();
 
         void initDebugCallback();
         void cleanupDebugCallback();
@@ -132,8 +128,10 @@ namespace gfx {
             VkDeviceSize size);
 
         GLFWwindow *m_window;
+        bool m_debug;
 
-        VkInstance m_instance;
+        vk::raii::Context m_context;
+        vk::raii::Instance m_instance;
         VkDebugReportCallbackEXT m_debug_callback;
         VkSurfaceKHR m_surface;
         VkPhysicalDevice m_physical_device;

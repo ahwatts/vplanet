@@ -136,7 +136,7 @@ endif()
 target_link_libraries(vplanet PUBLIC
     glfw
     ${glm_library}
-    Vulkan::Vulkan
+    Vulkan::cppm
     GPUOpen::VulkanMemoryAllocator)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")

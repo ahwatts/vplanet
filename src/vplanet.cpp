@@ -16,17 +16,15 @@ void bailout(const std::string &msg);
 
 int main(int argc, char **argv) {
     GLFWwindow *window;
-    initGLFW(WIDTH, HEIGHT, "Planet Demo", &window);
-    Application app{window};
+    initGLFW(WIDTH, HEIGHT, "Planet Demo", &window);    
 
     try {
-        app.init();
+        Application app{window};
         app.run();
     } catch (std::runtime_error &ex) {
         std::cerr << "Error running vplanet: " << ex.what() << "\n";
     }
 
-    app.dispose();
     glfwTerminate();
     return 0;
 }

@@ -1,5 +1,6 @@
 // -*- mode: c++; c-basic-offset: 4; encoding: utf-8; -*-
 
+#include <algorithm>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -27,34 +28,30 @@ std::vector<const char*> requiredInstanceLayers(bool debug);
 std::vector<const char*> requiredDeviceExtensions(bool debug);
 std::vector<const char*> requiredDeviceLayers(bool debug);
 
-gfx::System::System(GLFWwindow *window)
-    : m_window{window},
-      m_instance{VK_NULL_HANDLE},
-      m_debug_callback{VK_NULL_HANDLE},
-      m_surface{VK_NULL_HANDLE},
-      m_physical_device{VK_NULL_HANDLE},
-      m_device{VK_NULL_HANDLE},
-      m_graphics_queue_family{UINT32_MAX},
-      m_present_queue_family{UINT32_MAX},
-      m_image_available_semaphore{VK_NULL_HANDLE},
-      m_render_finished_semaphore{VK_NULL_HANDLE},
-      m_in_flight_fence{VK_NULL_HANDLE},
-      m_allocator{VK_NULL_HANDLE},
-      m_commands{this},
-      m_swapchain{this},
-      m_depth_buffer{this},
-      m_renderer{this},
-      m_uniforms{this}
-{}
+gfx::System::System(GLFWwindow *window, bool debug)
+: m_window{window},
+  m_debug{debug},
+  m_context{},
+  m_instance{nullptr},
+  m_debug_callback{VK_NULL_HANDLE},
+  m_surface{VK_NULL_HANDLE},
+  m_physical_device{VK_NULL_HANDLE},
+  m_device{VK_NULL_HANDLE},
+  m_graphics_queue_family{UINT32_MAX},
+  m_present_queue_family{UINT32_MAX},
+  m_image_available_semaphore{VK_NULL_HANDLE},
+  m_render_finished_semaphore{VK_NULL_HANDLE},
+  m_in_flight_fence{VK_NULL_HANDLE},
+  m_allocator{VK_NULL_HANDLE},
+  m_commands{this},
+  m_swapchain{this},
+  m_depth_buffer{this},
+  m_renderer{this},
+  m_uniforms{this}
+{
+    initInstance();
 
-gfx::System::~System() {
-    dispose();
-}
-
-void gfx::System::init(bool debug) {
-    initInstance(debug);
-
-    if (debug) {
+    if (m_debug) {
         initDebugCallback();
     }
 
@@ -69,7 +66,7 @@ void gfx::System::init(bool debug) {
     m_renderer.init();
 }
 
-void gfx::System::dispose() {
+gfx::System::~System() {
     m_renderer.dispose();
     m_uniforms.dispose();
     m_depth_buffer.dispose();
@@ -80,14 +77,13 @@ void gfx::System::dispose() {
     cleanupDevice();
     cleanupSurface();
     cleanupDebugCallback();
-    cleanupInstance();
 }
 
 GLFWwindow* gfx::System::window() const {
     return m_window;
 }
 
-VkInstance gfx::System::instance() const {
+const vk::raii::Instance &gfx::System::instance() const {
     return m_instance;
 }
 
@@ -408,93 +404,83 @@ void gfx::System::createShaderModule(const std::vector<unsigned char> &rsrc, VkS
     }
 }
 
-void gfx::System::initInstance(bool debug) {
-    if (m_instance != VK_NULL_HANDLE) {
-        return;
-    }
+void gfx::System::initInstance() {
+    std::vector<const char*> required_extensions = requiredInstanceExtensions(m_debug);
+    std::vector<vk::ExtensionProperties> extensions = m_context.enumerateInstanceExtensionProperties();
 
-    std::vector<const char*> wanted_extensions = requiredInstanceExtensions(debug);
-    uint32_t num_extensions;
-    vkEnumerateInstanceExtensionProperties(nullptr, &num_extensions, nullptr);
-    std::vector<VkExtensionProperties> extensions{num_extensions};
-    vkEnumerateInstanceExtensionProperties(nullptr, &num_extensions, extensions.data());
-    for (auto &wanted_extension_name : wanted_extensions) {
-        bool found = false;
-        std::string wanted_extension_name_str{wanted_extension_name};
-        for (auto &extension : extensions) {
-            std::string extension_name_str{extension.extensionName};
-            if (wanted_extension_name_str == extension_name_str) {
-                found = true;
-                break;
+    bool has_required_extensions = std::ranges::all_of(
+        required_extensions,
+        [&extensions](const char *this_req_ext) {
+            std::string_view required_ext_name{this_req_ext};
+            bool has_ext = std::ranges::any_of(
+                extensions,
+                [&required_ext_name](const vk::ExtensionProperties &this_ext) {
+                    std::string_view ext_name{this_ext.extensionName.data()};
+                    return required_ext_name == ext_name;
+                }
+            );
+
+            if (!has_ext) {
+                std::stringstream msg;
+                msg << "Required instance extension " << required_ext_name << " not supported";
+                throw std::runtime_error(msg.str());
+            } else {
+                return true;
             }
         }
+    );
 
-        if (!found) {
-            std::stringstream msg;
-            msg << "Unable to find instance extension " << wanted_extension_name_str << ". Cannot continue.";
-            throw std::runtime_error(msg.str());
-        }
-    }
+    std::vector<const char *> required_layers = requiredInstanceLayers(m_debug);
+    std::vector<vk::LayerProperties> layers = m_context.enumerateInstanceLayerProperties();
+    bool has_required_layers = std::ranges::all_of(
+        required_layers,
+        [&layers](const char *this_req_layer) {
+            std::string_view required_layer_name{this_req_layer};
+            bool has_layer = std::ranges::any_of(
+                layers,
+                [&required_layer_name](const vk::LayerProperties &this_layer) {
+                    std::string_view layer_name{this_layer.layerName};
+                    return required_layer_name == layer_name;
+                }
+            );
 
-    std::vector<const char *> wanted_layers = requiredInstanceLayers(debug);
-    uint32_t num_layers;
-    vkEnumerateInstanceLayerProperties(&num_layers, nullptr);
-    std::vector<VkLayerProperties> layers{num_layers};
-    vkEnumerateInstanceLayerProperties(&num_layers, layers.data());
-    for (auto &wanted_layer_name : wanted_layers) {
-        bool found = false;
-        std::string wanted_layer_name_str{wanted_layer_name};
-        for (auto &layer : layers) {
-            std::string layer_name_str{layer.layerName};
-            if (wanted_layer_name_str == layer_name_str) {
-                found = true;
-                break;
+            if (!has_layer) {
+                std::stringstream msg;
+                msg << "Required instance layer " << required_layer_name << " not supported";
+                throw std::runtime_error(msg.str());
+            } else {
+                return true;                
             }
         }
+    );
 
-        if (!found) {
-            std::stringstream msg;
-            msg << "Unable to find layer " << wanted_layer_name_str << ". Cannot continue.";
-            throw std::runtime_error{msg.str()};
-        }
+    if (!(has_required_extensions && has_required_layers)) {
+        throw std::runtime_error("Not all instance extensions and layers are supported");
     }
 
-    VkApplicationInfo app_info{};
-    app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    app_info.pNext = nullptr;
-    app_info.pApplicationName = "vplanet";
-    app_info.applicationVersion = VK_MAKE_VERSION(0, 1, 0);
-    app_info.pEngineName = "vplanet";
-    app_info.engineVersion = VK_MAKE_VERSION(0, 1, 0);
-    app_info.apiVersion = VK_API_VERSION_1_0;
+    vk::ApplicationInfo app_info{
+        .pApplicationName = "vplanet",
+        .applicationVersion = VK_MAKE_VERSION(0, 1, 0),
+        .pEngineName = "vplanet-engine",
+        .engineVersion = VK_MAKE_VERSION(0, 1, 0),
+        .apiVersion = vk::ApiVersion14,
+    };
 
-    VkInstanceCreateInfo inst_ci{};
-    inst_ci.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    inst_ci.pNext = nullptr;
-#ifdef __APPLE__
-    inst_ci.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
-#else
-    inst_ci.flags = 0;
-#endif
-    inst_ci.pApplicationInfo = &app_info;
-    inst_ci.enabledLayerCount = static_cast<uint32_t>(wanted_layers.size());
-    inst_ci.ppEnabledLayerNames = wanted_layers.empty() ? nullptr : wanted_layers.data();
-    inst_ci.enabledExtensionCount = static_cast<uint32_t>(wanted_extensions.size());
-    inst_ci.ppEnabledExtensionNames = wanted_extensions.empty() ? nullptr : wanted_extensions.data();
+    vk::InstanceCreateFlags flags;
+    // In addition to the extension that was checked for and added above, we
+    // also need to pass this flag in.
+    #ifdef __APPLE__
+    flags |= vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR;
+    #endif
 
-    VkResult rslt = vkCreateInstance(&inst_ci, nullptr, &m_instance);
-    if (rslt != VK_SUCCESS) {
-        std::stringstream msg;
-        msg << "Unable to create Vulkan instance. Error code: " << rslt;
-        throw std::runtime_error{msg.str()};
+    vk::InstanceCreateInfo inst_ci = vk::InstanceCreateInfo{
+        .flags = flags,
+        .pApplicationInfo = &app_info,
     }
-}
-
-void gfx::System::cleanupInstance() {
-    if (m_instance != VK_NULL_HANDLE) {
-        vkDestroyInstance(m_instance, nullptr);
-        m_instance = VK_NULL_HANDLE;
-    }
+        .setPEnabledExtensionNames(required_extensions)
+        .setPEnabledLayerNames(required_layers);
+    
+    m_instance = m_context.createInstance(inst_ci);
 }
 
 void gfx::System::initDebugCallback() {
@@ -514,7 +500,7 @@ void gfx::System::initDebugCallback() {
     drc_ci.pUserData = this;
     drc_ci.pfnCallback = gfx::System::debugCallback;
 
-    VkResult rslt = vkCreateDebugReportCallbackEXT(m_instance, &drc_ci, nullptr, &m_debug_callback);
+    VkResult rslt = vkCreateDebugReportCallbackEXT(*m_instance, &drc_ci, nullptr, &m_debug_callback);
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
         msg << "Unable to create debug report callback. Error code: " << rslt;
@@ -524,7 +510,7 @@ void gfx::System::initDebugCallback() {
 
 void gfx::System::cleanupDebugCallback() {
     if (m_instance != VK_NULL_HANDLE && m_debug_callback != VK_NULL_HANDLE) {
-        vkDestroyDebugReportCallbackEXT(m_instance, m_debug_callback, nullptr);
+        vkDestroyDebugReportCallbackEXT(*m_instance, m_debug_callback, nullptr);
         m_debug_callback = VK_NULL_HANDLE;
     }
 }
@@ -657,7 +643,7 @@ void gfx::System::initSurface() {
         return;
     }
 
-    VkResult rslt = glfwCreateWindowSurface(m_instance, m_window, nullptr, &m_surface);
+    VkResult rslt = glfwCreateWindowSurface(*m_instance, m_window, nullptr, &m_surface);
     if (rslt != VK_SUCCESS) {
         std::stringstream msg;
         msg << "Unable to create window surface. Error code: " << rslt;
@@ -667,7 +653,7 @@ void gfx::System::initSurface() {
 
 void gfx::System::cleanupSurface() {
     if (m_instance != VK_NULL_HANDLE && m_surface != VK_NULL_HANDLE) {
-        vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
+        vkDestroySurfaceKHR(*m_instance, m_surface, nullptr);
         m_surface = VK_NULL_HANDLE;
     }
 }
@@ -678,9 +664,9 @@ void gfx::System::initDevice(bool debug) {
     }
 
     uint32_t num_devices;
-    vkEnumeratePhysicalDevices(m_instance, &num_devices, nullptr);
+    vkEnumeratePhysicalDevices(*m_instance, &num_devices, nullptr);
     std::vector<VkPhysicalDevice> devices{num_devices};
-    vkEnumeratePhysicalDevices(m_instance, &num_devices, devices.data());
+    vkEnumeratePhysicalDevices(*m_instance, &num_devices, devices.data());
     ChosenDeviceInfo chosen_device = choosePhysicalDevice(devices, m_surface, debug);
     if (chosen_device.device == VK_NULL_HANDLE) {
         std::stringstream msg;
@@ -765,7 +751,7 @@ void gfx::System::initAllocator(bool debug) {
 
         alloc_ci.physicalDevice = m_physical_device;
         alloc_ci.device = m_device;
-        alloc_ci.instance = m_instance;
+        alloc_ci.instance = *m_instance;
         alloc_ci.vulkanApiVersion = VK_API_VERSION_1_0;
 
         if (debug) {
@@ -952,7 +938,7 @@ ChosenDeviceInfo choosePhysicalDevice(const std::vector<VkPhysicalDevice> &devic
 
 std::vector<const char*> requiredInstanceExtensions(bool debug) {
     std::vector<const char*> required_extensions;
-
+    
     uint32_t glfw_extension_count;
     const char **glfw_extensions = glfwGetRequiredInstanceExtensions(&glfw_extension_count);
     for (uint32_t i = 0; i < glfw_extension_count; ++i) {
@@ -960,12 +946,11 @@ std::vector<const char*> requiredInstanceExtensions(bool debug) {
     }
 
     if (debug) {
-        required_extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+        required_extensions.push_back(vk::EXTDebugReportExtensionName);
     }
 
 #ifdef __APPLE__
     required_extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
-    required_extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
 #endif
 
     return required_extensions;
@@ -983,7 +968,7 @@ std::vector<const char*> requiredInstanceLayers(bool debug) {
 
 std::vector<const char*> requiredDeviceExtensions(bool debug) {
     std::vector<const char*> required_extensions;
-    required_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    required_extensions.push_back(vk::KHRSwapchainExtensionName);
     return required_extensions;
 }
 
