@@ -8,9 +8,7 @@
 #include "../vulkan.h"
 #include "../VmaUsage.h"
 
-#include "../glm_defines.h"
-#include <glm/vec3.hpp>
-#include <glm/mat4x4.hpp>
+#include "../glm.h"
 
 namespace gfx {
     class System;

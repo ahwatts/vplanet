@@ -3,11 +3,9 @@
 #include <array>
 #include <map>
 #include <vector>
-#include "vulkan.h"
 
-#include "glm_defines.h"
-#include <glm/vec3.hpp>
-#include <glm/geometric.hpp>
+#include "glm.h"
+#include "vulkan.h"
 
 #include "Models.h"
 #include "Noise.h"

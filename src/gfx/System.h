@@ -69,7 +69,7 @@ namespace gfx {
         void copyBuffer(VkBuffer dst, VkBuffer src, VkDeviceSize size);
         void destroyBuffer(VkBuffer buffer, VmaAllocation allocation);
 
-        void createShaderModule(const Resource &rsrc, VkShaderModule &shader);
+        void createShaderModule(const std::vector<unsigned char> &rsrc, VkShaderModule &shader);
 
     private:
         void initInstance(bool debug);

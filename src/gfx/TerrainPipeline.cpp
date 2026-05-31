@@ -14,8 +14,9 @@
 #include "System.h"
 #include "Uniforms.h"
 
-const Resource TERRAIN_VERT_BYTECODE = LOAD_RESOURCE(terrain_vert_spv);
-const Resource TERRAIN_FRAG_BYTECODE = LOAD_RESOURCE(terrain_frag_spv);
+const std::vector<unsigned char> dummy{};
+const std::vector<unsigned char> &TERRAIN_VERT_BYTECODE = dummy; // LOAD_RESOURCE(terrain_vert_spv);
+const std::vector<unsigned char> &TERRAIN_FRAG_BYTECODE = dummy; // LOAD_RESOURCE(terrain_frag_spv);
 
 gfx::TerrainPipeline::TerrainPipeline(Renderer *renderer)
     : Pipeline(renderer),

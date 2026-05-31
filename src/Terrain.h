@@ -7,9 +7,7 @@
 #include <vector>
 
 #include "vulkan.h"
-
-#include "glm_defines.h"
-#include <glm/vec3.hpp>
+#include "glm.h"
 
 #include "Noise.h"
 

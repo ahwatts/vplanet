@@ -6,9 +6,7 @@
 
 #include "vulkan.h"
 
-#include <glm/vec3.hpp>
-#include <glm/vec4.hpp>
-#include <glm/geometric.hpp>
+#include "glm.h"
 
 #include "Models.h"
 #include "Ocean.h"

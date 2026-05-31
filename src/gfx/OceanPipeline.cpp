@@ -13,8 +13,9 @@
 #include "Resource.h"
 #include "System.h"
 
-const Resource OCEAN_VERT_BYTECODE = LOAD_RESOURCE(ocean_vert_spv);
-const Resource OCEAN_FRAG_BYTECODE = LOAD_RESOURCE(ocean_frag_spv);
+const std::vector<unsigned char> dummy{};
+const std::vector<unsigned char> &OCEAN_VERT_BYTECODE = dummy; // LOAD_RESOURCE(ocean_vert_spv);
+const std::vector<unsigned char> &OCEAN_FRAG_BYTECODE = dummy; // LOAD_RESOURCE(ocean_frag_spv);
 
 gfx::OceanPipeline::OceanPipeline(Renderer *renderer)
     : Pipeline(renderer),

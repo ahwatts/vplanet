@@ -6,10 +6,7 @@
 #include <utility>
 #include <vector>
 
-#include "glm_defines.h"
-#include <glm/gtc/epsilon.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <glm/vec3.hpp>
+#include "glm.h"
 
 #include "Models.h"
 

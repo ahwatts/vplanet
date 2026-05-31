@@ -5,11 +5,9 @@
 
 #include <vector>
 
+#include "../glm.h"
 #include "../vulkan.h"
 #include "../VmaUsage.h"
-
-#include "../glm_defines.h"
-#include <glm/mat4x4.hpp>
 
 #include "../Terrain.h"
 #include "Pipeline.h"

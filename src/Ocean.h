@@ -6,10 +6,8 @@
 #include <array>
 #include <vector>
 
+#include "glm.h"
 #include "vulkan.h"
-
-#include <glm/vec3.hpp>
-#include <glm/vec4.hpp>
 
 struct OceanVertex {
     glm::vec3 position;

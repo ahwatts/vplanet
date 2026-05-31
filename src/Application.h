@@ -6,7 +6,6 @@
 #include "vulkan.h"
 
 #include "gfx/System.h"
-#include "gfx/Uniforms.h"
 
 class Application {
 public:

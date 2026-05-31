@@ -3,10 +3,7 @@
 #include <chrono>
 #include <iostream>
 
-#include "glm_defines.h"
-#include <glm/vec3.hpp>
-#include <glm/mat4x4.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include "glm.h"
 
 #include "gfx/Uniforms.h"
 #include "Application.h"

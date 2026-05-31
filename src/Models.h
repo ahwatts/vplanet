@@ -5,8 +5,7 @@
 
 #include <vector>
 
-#include "glm_defines.h"
-#include <glm/vec3.hpp>
+#include "glm.H"
 
 struct PositionsAndElements {
     std::vector<glm::vec3> positions;

@@ -391,7 +391,7 @@ void gfx::System::destroyBuffer(VkBuffer buffer, VmaAllocation allocation) {
     }
 }
 
-void gfx::System::createShaderModule(const Resource &rsrc, VkShaderModule &shader) {
+void gfx::System::createShaderModule(const std::vector<unsigned char> &rsrc, VkShaderModule &shader) {
     VkShaderModuleCreateInfo sm_ci;
     sm_ci.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     sm_ci.pNext = nullptr;

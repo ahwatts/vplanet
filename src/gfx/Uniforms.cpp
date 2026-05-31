@@ -4,13 +4,9 @@
 #include <sstream>
 #include <vector>
 
+#include "../glm.h"
 #include "../vulkan.h"
 #include "../VmaUsage.h"
-
-#include "../glm_defines.h"
-#include <glm/vec3.hpp>
-#include <glm/mat4x4.hpp>
-#include <glm/gtc/type_ptr.hpp>
 
 #include "System.h"
 #include "Uniforms.h"
