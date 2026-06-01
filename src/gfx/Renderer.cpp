@@ -151,7 +151,7 @@ void gfx::Renderer::initRenderPass() {
     const Swapchain &swapchain = m_system->swapchain();
     const DepthBuffer &depth_buffer = m_system->depthBuffer();
     VkFormat color_format = static_cast<VkFormat>(swapchain.format().format);
-    VkFormat depth_format = depth_buffer.format();
+    VkFormat depth_format = static_cast<VkFormat>(depth_buffer.format());
 
     VkAttachmentDescription attachments[2];
 
@@ -245,7 +245,7 @@ void gfx::Renderer::initFramebuffers() {
     for (uint32_t i = 0; i < color_buffers.size(); ++i) {
         std::array<VkImageView, 2> attachments{
             *color_buffers[i],
-            depth_buffer.imageView(),
+            *depth_buffer.imageView(),
         };
 
         VkFramebufferCreateInfo fb_ci;

@@ -4,34 +4,37 @@
 #define _VPLANET_GFX_DEPTH_BUFFER_H_
 
 #include "../vulkan.h"
+#include "../VmaUsage.h"
 
 namespace gfx {
     class System;
 
     class DepthBuffer {
     public:
+        DepthBuffer();
         DepthBuffer(System *system);
+        DepthBuffer(const DepthBuffer &other) = delete;
+        DepthBuffer(DepthBuffer &&other);
+        
         ~DepthBuffer();
 
-        VkFormat format() const;
-        VkImageView imageView() const;
-        bool hasStencilComponent() const;
+        DepthBuffer &operator=(const DepthBuffer &other) = delete;
+        DepthBuffer &operator=(DepthBuffer &&other);
 
-        void init();
-        void dispose();
+        vk::Format format() const;
+        const vk::raii::ImageView &imageView() const;
+        bool hasStencilComponent() const;
 
     private:
         void initDepthResources();
-        void cleanupDepthResources();
-
         void transitionImageLayout();
 
         System *m_system;
 
-        VkFormat m_format;
-        VkImage m_image;
-        VkImageView m_image_view;
-        VkDeviceMemory m_image_memory;
+        vk::Format m_format;
+        vk::raii::Image m_image;
+        vk::raii::ImageView m_image_view;
+        VmaAllocation m_image_allocation;
     };
 }
 

@@ -53,7 +53,7 @@ gfx::System::System(GLFWwindow *window, bool debug)
   m_allocator{VK_NULL_HANDLE},
   m_commands{},
   m_swapchain{},
-  m_depth_buffer{this},
+  m_depth_buffer{},
   m_renderer{this},
   m_uniforms{this}
 {
@@ -69,7 +69,7 @@ gfx::System::System(GLFWwindow *window, bool debug)
     m_swapchain = Swapchain(this);
     initSynchronizationObjects();
     m_commands = Commands(this);
-    m_depth_buffer.init();
+    m_depth_buffer = DepthBuffer(this);
     m_uniforms.init();
     m_renderer.init();
 }
@@ -80,7 +80,6 @@ gfx::System::~System() {
 
     m_renderer.dispose();
     m_uniforms.dispose();
-    m_depth_buffer.dispose();
     cleanupAllocator();
 }
 
