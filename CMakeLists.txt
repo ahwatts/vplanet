@@ -48,10 +48,8 @@ add_subdirectory(vendor/embed-resource)
 add_subdirectory(vendor/VulkanMemoryAllocator-3.3.0)
 
 compile_spirv(SPIRV_SHADERS
-  # src/gfx/shaders/ocean.vert
-  # src/gfx/shaders/ocean.frag
-  # src/gfx/shaders/terrain.vert
-  # src/gfx/shaders/terrain.frag
+  src/gfx/shaders/ocean.slang
+  src/gfx/shaders/terrain.slang
 )
 
 embed_resources(EMBEDDED_SHADERS ${SPIRV_SHADERS})

@@ -13,15 +13,13 @@
 #include "Resource.h"
 #include "System.h"
 
-const std::vector<unsigned char> dummy{};
-const std::vector<unsigned char> &OCEAN_VERT_BYTECODE = dummy; // LOAD_RESOURCE(ocean_vert_spv);
-const std::vector<unsigned char> &OCEAN_FRAG_BYTECODE = dummy; // LOAD_RESOURCE(ocean_frag_spv);
+const std::vector<unsigned char> &OCEAN_SHADER_BYTECODE = LOAD_RESOURCE(ocean_slang_spv);
 
 gfx::OceanPipeline::OceanPipeline(Renderer *renderer)
     : Pipeline(renderer),
       m_uniforms{&renderer->system()->uniforms()},
-      m_vertex_shader{VK_NULL_HANDLE},
-      m_fragment_shader{VK_NULL_HANDLE},
+    //   m_vertex_shader{VK_NULL_HANDLE},
+    //   m_fragment_shader{VK_NULL_HANDLE},
       m_num_indices{0},
       m_vertex_buffer{VK_NULL_HANDLE},
       m_index_buffer{VK_NULL_HANDLE},
@@ -97,30 +95,30 @@ void gfx::OceanPipeline::cleanupGeometryBuffers() {
 }
 
 void gfx::OceanPipeline::initShaderModules() {
-    System *gfx = m_renderer->system();
+    // System *gfx = m_renderer->system();
 
-    if (m_vertex_shader == VK_NULL_HANDLE) {
-        gfx->createShaderModule(OCEAN_VERT_BYTECODE, m_vertex_shader);
-    }
+    // if (m_vertex_shader == VK_NULL_HANDLE) {
+    //     gfx->createShaderModule(OCEAN_VERT_BYTECODE, m_vertex_shader);
+    // }
 
-    if (m_fragment_shader == VK_NULL_HANDLE) {
-        gfx->createShaderModule(OCEAN_FRAG_BYTECODE, m_fragment_shader);
-    }
+    // if (m_fragment_shader == VK_NULL_HANDLE) {
+    //     gfx->createShaderModule(OCEAN_FRAG_BYTECODE, m_fragment_shader);
+    // }
 }
 
 void gfx::OceanPipeline::cleanupShaderModules() {
-    const vk::raii::Device &device = m_renderer->system()->device();
-    if (device != VK_NULL_HANDLE) {
-        if (m_vertex_shader != VK_NULL_HANDLE) {
-            vkDestroyShaderModule(*device, m_vertex_shader, nullptr);
-            m_vertex_shader = VK_NULL_HANDLE;
-        }
+    // const vk::raii::Device &device = m_renderer->system()->device();
+    // if (device != VK_NULL_HANDLE) {
+    //     if (m_vertex_shader != VK_NULL_HANDLE) {
+    //         vkDestroyShaderModule(*device, m_vertex_shader, nullptr);
+    //         m_vertex_shader = VK_NULL_HANDLE;
+    //     }
 
-        if (m_fragment_shader != VK_NULL_HANDLE) {
-            vkDestroyShaderModule(*device, m_fragment_shader, nullptr);
-            m_fragment_shader = VK_NULL_HANDLE;
-        }
-    }
+    //     if (m_fragment_shader != VK_NULL_HANDLE) {
+    //         vkDestroyShaderModule(*device, m_fragment_shader, nullptr);
+    //         m_fragment_shader = VK_NULL_HANDLE;
+    //     }
+    // }
 }
 
 void gfx::OceanPipeline::initPipeline() {
@@ -133,21 +131,27 @@ void gfx::OceanPipeline::initPipeline() {
     VkExtent2D extent = system->swapchain().extent();
     VkRenderPass render_pass = m_renderer->renderPass();
 
+    vk::ShaderModuleCreateInfo sm_ci{
+        .codeSize = OCEAN_SHADER_BYTECODE.size() * sizeof(std::remove_reference<decltype(OCEAN_SHADER_BYTECODE)>::type::value_type),
+        .pCode = reinterpret_cast<const uint32_t *>(OCEAN_SHADER_BYTECODE.data()),
+    };
+    vk::raii::ShaderModule shader = device.createShaderModule(sm_ci);
+
     VkPipelineShaderStageCreateInfo ss_ci[2];
     ss_ci[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     ss_ci[0].pNext = nullptr;
     ss_ci[0].flags = 0;
     ss_ci[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-    ss_ci[0].module = m_vertex_shader;
-    ss_ci[0].pName = "main";
+    ss_ci[0].module = *shader;
+    ss_ci[0].pName = "vs_main";
     ss_ci[0].pSpecializationInfo = nullptr;
 
     ss_ci[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     ss_ci[1].pNext = nullptr;
     ss_ci[1].flags = 0;
     ss_ci[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    ss_ci[1].module = m_fragment_shader;
-    ss_ci[1].pName = "main";
+    ss_ci[1].module = *shader;
+    ss_ci[1].pName = "fs_main";
     ss_ci[1].pSpecializationInfo = nullptr;
 
     VkVertexInputBindingDescription bind_desc = OceanVertex::bindingDescription();
