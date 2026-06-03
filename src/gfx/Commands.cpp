@@ -20,20 +20,20 @@ gfx::Commands::Commands(System *system) : Commands() {
     initCommandBuffers();
 }
 
-gfx::Commands::Commands(Commands &&other) : Commands() {
-    *this = std::move(other);
-}
+// gfx::Commands::Commands(Commands &&other) : Commands() {
+//     *this = std::move(other);
+// }
 
-gfx::Commands::~Commands() {}
+// gfx::Commands::~Commands() {}
 
-gfx::Commands &gfx::Commands::operator=(Commands && other) {
-    m_system = other.m_system;
-    std::swap(m_graphics_queue, other.m_graphics_queue);
-    std::swap(m_present_queue, other.m_present_queue);
-    std::swap(m_pool, other.m_pool);
-    std::swap(m_draw_commands, other.m_draw_commands);
-    return *this;
-}
+// gfx::Commands &gfx::Commands::operator=(Commands && other) {
+//     m_system = other.m_system;
+//     std::swap(m_graphics_queue, other.m_graphics_queue);
+//     std::swap(m_present_queue, other.m_present_queue);
+//     std::swap(m_pool, other.m_pool);
+//     std::swap(m_draw_commands, other.m_draw_commands);
+//     return *this;
+// }
 
 const vk::raii::Queue &gfx::Commands::graphicsQueue() const {
     return m_graphics_queue;

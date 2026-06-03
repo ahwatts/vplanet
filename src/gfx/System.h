@@ -55,7 +55,7 @@ namespace gfx {
         void disableLight(uint32_t index);
         void writeLightList(uint32_t buffer_index);
 
-        void recordCommandBuffers();
+        // void recordCommandBuffers();
         uint32_t startFrame();
         void drawFrame(uint32_t image_index);
         void presentFrame(uint32_t image_index);
@@ -63,12 +63,18 @@ namespace gfx {
 
         uint32_t chooseMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties) const;
 
-        void createBuffer(size_t size, VkBufferUsageFlags usage, VmaAllocationCreateFlags allocation_flags, VkBuffer &buffer, VmaAllocation &allocation);
-        void createBufferWithData(const void *data, size_t size, VkBufferUsageFlags usage, VkBuffer &buffer, VmaAllocation &allocation);
-        void copyBuffer(VkBuffer dst, VkBuffer src, VkDeviceSize size);
-        void destroyBuffer(VkBuffer buffer, VmaAllocation allocation);
-
-        void createShaderModule(const std::vector<unsigned char> &rsrc, VkShaderModule &shader);
+        std::pair<vk::raii::Buffer, VmaAllocation> createBuffer(
+            vk::DeviceSize size, 
+            vk::BufferUsageFlags usage,
+            VmaAllocationCreateFlags allocation_flags
+        );
+        std::pair<vk::raii::Buffer, VmaAllocation> createBufferWithData(
+            const void *data, 
+            size_t size, 
+            vk::BufferUsageFlags usage,
+            VmaAllocationCreateFlags allocation_flags
+        );
+        void copyBuffer(const vk::raii::Buffer &dst, const vk::raii::Buffer &src, vk::DeviceSize size);
 
     private:
         void initInstance();

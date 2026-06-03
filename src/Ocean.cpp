@@ -11,33 +11,35 @@
 #include "Models.h"
 #include "Ocean.h"
 
-VkVertexInputBindingDescription OceanVertex::bindingDescription() {
-    VkVertexInputBindingDescription desc;
-    desc.binding = 0;
-    desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    desc.stride = sizeof(OceanVertex);
-    return desc;
+vk::VertexInputBindingDescription OceanVertex::bindingDescription() {
+    return vk::VertexInputBindingDescription{
+        .binding = 0,
+        .stride = sizeof(OceanVertex),
+        .inputRate = vk::VertexInputRate::eVertex,
+    };
 }
 
-std::array<VkVertexInputAttributeDescription, OceanVertex::NUM_ATTRIBUTES> OceanVertex::attributeDescription() {
-    std::array<VkVertexInputAttributeDescription, OceanVertex::NUM_ATTRIBUTES> descs;
-
-    descs[0].binding = 0;
-    descs[0].location = 0;
-    descs[0].offset = offsetof(OceanVertex, position);
-    descs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-
-    descs[1].binding = 0;
-    descs[1].location = 1;
-    descs[1].offset = offsetof(OceanVertex, color);
-    descs[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-
-    descs[2].binding = 0;
-    descs[2].location = 2;
-    descs[2].offset = offsetof(OceanVertex, normal);
-    descs[2].format = VK_FORMAT_R32G32B32_SFLOAT;
-
-    return descs;
+std::array<vk::VertexInputAttributeDescription, OceanVertex::NUM_ATTRIBUTES> OceanVertex::attributeDescription() {
+    return std::array<vk::VertexInputAttributeDescription, OceanVertex::NUM_ATTRIBUTES>{
+        vk::VertexInputAttributeDescription{
+            .location = 0,
+            .binding = 0,
+            .format = vk::Format::eR32G32B32Sfloat,
+            .offset = offsetof(OceanVertex, position),
+        },
+        vk::VertexInputAttributeDescription{
+            .location = 1,
+            .binding = 0,
+            .format = vk::Format::eR32G32B32A32Sfloat,
+            .offset = offsetof(OceanVertex, color),
+        },
+        vk::VertexInputAttributeDescription{
+            .location = 2,
+            .binding = 0,
+            .format = vk::Format::eR32G32B32Sfloat,
+            .offset = offsetof(OceanVertex, normal),
+        },
+    };
 }
 
 Ocean::Ocean(float radius, int refinements)

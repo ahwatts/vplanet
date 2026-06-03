@@ -11,111 +11,114 @@
 #include "System.h"
 #include "Uniforms.h"
 
-gfx::Uniforms::Uniforms(System *system)
-    : m_system{system},
-      m_descriptor_pool{VK_NULL_HANDLE}
+gfx::Uniforms::Uniforms()
+: m_system{nullptr},
+  m_descriptor_pool{nullptr},
+  m_descriptor_set_layouts{},
+  m_num_frames{0}
 {}
 
-gfx::Uniforms::~Uniforms() {
-    dispose();
-}
-
-void gfx::Uniforms::init() {
-    SceneUniformSet::initDescriptorSetLayout(m_system);
-    ModelUniformSet::initDescriptorSetLayout(m_system);
+gfx::Uniforms::Uniforms(System *system, uint32_t num_frames) : Uniforms() {
+    m_system = system;
+    m_num_frames = num_frames;
+    SceneUniformSet::initDescriptorSetLayout(m_system, this);
+    ModelUniformSet::initDescriptorSetLayout(m_system, this);
     initDescriptorPool();
 }
 
-void gfx::Uniforms::dispose() {
-    cleanupDescriptorPool();
-    ModelUniformSet::cleanupDescriptorSetLayout(m_system);
-    SceneUniformSet::cleanupDescriptorSetLayout(m_system);
+// gfx::Uniforms::Uniforms(Uniforms &&other) : Uniforms() {
+//     *this = std::move(other);
+// }
+
+gfx::Uniforms::~Uniforms() {
+    // Since the actual layouts are about to be destructed, make sure the global
+    // pointers to them are nullified.
+    SceneUniformSet::c_descriptor_set_layout = nullptr;
+    ModelUniformSet::c_descriptor_set_layout = nullptr;
 }
+
+// gfx::Uniforms &gfx::Uniforms::operator=(Uniforms &&other) {
+//     m_system = other.m_system;
+//     m_num_frames = other.m_num_frames;
+//     std::swap(m_descriptor_pool, other.m_descriptor_pool);
+//     std::swap(m_descriptor_set_layouts, other.m_descriptor_set_layouts);
+//     return *this;
+// }
 
 gfx::System* gfx::Uniforms::system() {
     return m_system;
 }
 
-VkDescriptorPool gfx::Uniforms::descriptorPool() const {
+const vk::raii::DescriptorPool &gfx::Uniforms::descriptorPool() const {
     return m_descriptor_pool;
 }
 
+uint32_t gfx::Uniforms::numFrames() const {
+    return m_num_frames;
+}
+
+vk::raii::DescriptorSetLayout *gfx::Uniforms::registerDescriptorSetLayout(vk::raii::DescriptorSetLayout &&layout) {
+    m_descriptor_set_layouts.emplace_back(std::move(layout));
+    return &m_descriptor_set_layouts.back();
+}
+
 void gfx::Uniforms::initDescriptorPool() {
-    if (m_descriptor_pool != VK_NULL_HANDLE) {
-        return;
-    }
-
     const vk::raii::Device &device = m_system->device();
-    uint32_t num_images = static_cast<uint32_t>(m_system->swapchain().images().size());
-    uint32_t num_descriptors = 4 * num_images;
+    
+    vk::DescriptorPoolSize pool_size{
+        .type = vk::DescriptorType::eUniformBuffer,
+        .descriptorCount = m_num_frames,
+    };
+    vk::DescriptorPoolCreateInfo dp_ci = vk::DescriptorPoolCreateInfo{
+        .maxSets = 4 * m_num_frames,
+    }.setPoolSizes(pool_size);
 
-    std::array<VkDescriptorPoolSize, 1> pool_sizes{};
-    pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    pool_sizes[0].descriptorCount = num_descriptors;
-
-    VkDescriptorPoolCreateInfo dp_ci;
-    dp_ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    dp_ci.pNext = nullptr;
-    dp_ci.flags = 0;
-    dp_ci.poolSizeCount = static_cast<uint32_t>(pool_sizes.size());
-    dp_ci.pPoolSizes = pool_sizes.data();
-    dp_ci.maxSets = num_descriptors;
-
-    VkResult rslt = vkCreateDescriptorPool(*device, &dp_ci, nullptr, &m_descriptor_pool);
-    if (rslt != VK_SUCCESS) {
-        std::stringstream msg;
-        msg << "Unable to create descriptor pool. Error code: " << rslt;
-        throw std::runtime_error(msg.str());
-    }
+    m_descriptor_pool = device.createDescriptorPool(dp_ci);
 }
 
-void gfx::Uniforms::cleanupDescriptorPool() {
-    const vk::raii::Device &device = m_system->device();
-    if (device != VK_NULL_HANDLE && m_descriptor_pool != VK_NULL_HANDLE) {
-        vkDestroyDescriptorPool(*device, m_descriptor_pool, nullptr);
-        m_descriptor_pool = VK_NULL_HANDLE;
-    }
-}
-
-gfx::UniformSet::UniformSet(Uniforms *uniforms)
-    : m_uniforms{uniforms},
-      m_descriptor_sets{}
+gfx::UniformSet::UniformSet()
+: m_uniforms{nullptr},
+  m_descriptor_sets{}
 {}
 
-gfx::UniformSet::~UniformSet() {
-    dispose();
+gfx::UniformSet::UniformSet(Uniforms *uniforms) : UniformSet() {
+    m_uniforms = uniforms;
 }
 
-void gfx::UniformSet::init() {
-    initDescriptorSets();
+gfx::UniformSet::UniformSet(UniformSet &&other) : UniformSet() {
+    *this = std::move(other);
 }
 
-void gfx::UniformSet::dispose() {
-    cleanupDescriptorSets();
+gfx::UniformSet::~UniformSet() {}
+
+gfx::UniformSet &gfx::UniformSet::operator=(UniformSet &&other) {
+    m_uniforms = other.m_uniforms;
+    std::swap(m_descriptor_sets, other.m_descriptor_sets);
+    return *this;
 }
 
-const std::vector<VkDescriptorSet>& gfx::UniformSet::descriptorSets() const {
+const std::vector<vk::raii::DescriptorSet> &gfx::UniformSet::descriptorSets() const {
     return m_descriptor_sets;
 }
 
-void gfx::UniformSet::cleanupDescriptorSets() {
-    // VkDevice device = m_system->device();
-    // if (device != VK_NULL_HANDLE && m_descriptor_pool != VK_NULL_HANDLE && m_descriptor_sets.size() > 0) {
-    //     vkFreeDescriptorSets(device, m_descriptor_pool, m_descriptor_sets.size(), m_descriptor_sets.data());
-    // }
-    m_descriptor_sets.clear();
-}
-
-VkDescriptorSetLayout gfx::SceneUniformSet::c_descriptor_set_layout = VK_NULL_HANDLE;
+gfx::SceneUniformSet::SceneUniformSet()
+: UniformSet(),
+  m_view_projection{},
+  m_lights{},
+  m_view_projection_buffers{},
+  m_view_projection_buffer_allocations{},
+  m_light_list_buffers{},
+  m_light_list_buffer_allocations{}
+{}
 
 gfx::SceneUniformSet::SceneUniformSet(Uniforms *uniforms)
-    : UniformSet(uniforms),
-      m_view_projection{},
-      m_lights{},
-      m_view_projection_buffers{},
-      m_view_projection_buffer_allocations{},
-      m_light_list_buffers{},
-      m_light_list_buffer_allocations{}
+: UniformSet(uniforms),
+  m_view_projection{},
+  m_lights{},
+  m_view_projection_buffers{},
+  m_view_projection_buffer_allocations{},
+  m_light_list_buffers{},
+  m_light_list_buffer_allocations{}
 {
     m_view_projection.projection = glm::mat4x4(1.0);
     m_view_projection.view = glm::mat4x4(1.0);
@@ -124,67 +127,72 @@ gfx::SceneUniformSet::SceneUniformSet(Uniforms *uniforms)
         m_lights[i].enabled = 0;
         m_lights[i].direction = glm::vec3(0.0, 0.0, 0.0);
     }
+
+    initUniformBuffers();
+}
+
+gfx::SceneUniformSet::SceneUniformSet(SceneUniformSet &&other)
+: UniformSet(std::move(other))
+{
+    *this = std::move(other);
 }
 
 gfx::SceneUniformSet::~SceneUniformSet() {
-    dispose();
+    for (auto &alloc : m_view_projection_buffer_allocations) {
+        vmaFreeMemory(m_uniforms->system()->allocator(), alloc);
+    }
+
+    for (auto &alloc : m_light_list_buffer_allocations) {
+        vmaFreeMemory(m_uniforms->system()->allocator(), alloc);
+    }
 }
 
-void gfx::SceneUniformSet::init() {
-    initUniformBuffers();
-    UniformSet::init();
+gfx::SceneUniformSet &gfx::SceneUniformSet::operator=(SceneUniformSet &&other) {
+    m_view_projection = other.m_view_projection;
+    for (int i = 0; i < MAX_LIGHTS; ++i) {
+        m_lights[i].enabled = other.m_lights[i].enabled;
+        m_lights[i].direction = other.m_lights[i].direction;
+    }
+    std::swap(m_view_projection_buffers, other.m_view_projection_buffers);
+    std::swap(m_view_projection_buffer_allocations, other.m_view_projection_buffer_allocations);
+    std::swap(m_light_list_buffers, other.m_light_list_buffers);
+    std::swap(m_light_list_buffer_allocations, other.m_light_list_buffer_allocations);
+    return *this;
 }
 
-void gfx::SceneUniformSet::dispose() {
-    UniformSet::dispose();
-    cleanupUniformBuffers();
-}
+vk::raii::DescriptorSetLayout *gfx::SceneUniformSet::c_descriptor_set_layout = nullptr;
 
-void gfx::SceneUniformSet::initDescriptorSetLayout(System *gfx) {
-    if (c_descriptor_set_layout != VK_NULL_HANDLE) {
+void gfx::SceneUniformSet::initDescriptorSetLayout(System *gfx, Uniforms *owner) {
+    if (c_descriptor_set_layout != nullptr) {
         return;
     }
 
     const vk::raii::Device &device = gfx->device();
 
-    std::array<VkDescriptorSetLayoutBinding, 2> bindings;
-    bindings[0].binding = 0;
-    bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    bindings[0].descriptorCount = 1;
-    bindings[0].stageFlags = VK_SHADER_STAGE_ALL;
-    bindings[0].pImmutableSamplers = nullptr;
+    std::array<vk::DescriptorSetLayoutBinding, 2> bindings{
+        vk::DescriptorSetLayoutBinding{
+            .binding = 0,
+            .descriptorType = vk::DescriptorType::eUniformBuffer,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eAll,
+        },
+        vk::DescriptorSetLayoutBinding{
+            .binding = 1,
+            .descriptorType = vk::DescriptorType::eUniformBuffer,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eAll,
+        },
+    };
 
-    bindings[1].binding = 1;
-    bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    bindings[1].descriptorCount = 1;
-    bindings[1].stageFlags = VK_SHADER_STAGE_ALL;
-    bindings[1].pImmutableSamplers = nullptr;
+    vk::DescriptorSetLayoutCreateInfo dsl_ci = vk::DescriptorSetLayoutCreateInfo{}
+        .setBindings(bindings);
 
-    VkDescriptorSetLayoutCreateInfo dsl_ci;
-    dsl_ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    dsl_ci.pNext = nullptr;
-    dsl_ci.flags = 0;
-    dsl_ci.bindingCount = static_cast<uint32_t>(bindings.size());
-    dsl_ci.pBindings = bindings.data();
-
-    VkResult rslt = vkCreateDescriptorSetLayout(*device, &dsl_ci, nullptr, &c_descriptor_set_layout);
-    if (rslt != VK_SUCCESS) {
-        std::stringstream msg;
-        msg << "Unable to create descriptor set layout. Error code: " << rslt;
-        throw std::runtime_error(msg.str());
-    }
+    vk::raii::DescriptorSetLayout dsl = device.createDescriptorSetLayout(dsl_ci);
+    c_descriptor_set_layout = owner->registerDescriptorSetLayout(std::move(dsl));
 }
 
-void gfx::SceneUniformSet::cleanupDescriptorSetLayout(System *gfx) {
-    const vk::raii::Device &device = gfx->device();
-    if (device != VK_NULL_HANDLE && c_descriptor_set_layout != VK_NULL_HANDLE) {
-        vkDestroyDescriptorSetLayout(*device, c_descriptor_set_layout, nullptr);
-        c_descriptor_set_layout = VK_NULL_HANDLE;
-    }
-}
-
-VkDescriptorSetLayout gfx::SceneUniformSet::descriptorSetLayout() {
-    return c_descriptor_set_layout;
+const vk::raii::DescriptorSetLayout &gfx::SceneUniformSet::descriptorSetLayout() {
+    return *c_descriptor_set_layout;
 }
 
 void gfx::SceneUniformSet::setTransforms(const ViewProjectionTransform &xform) {
@@ -198,12 +206,16 @@ void gfx::SceneUniformSet::updateViewProjectionBuffer(uint32_t buffer_index) {
         allocator,
         &m_view_projection,
         m_view_projection_buffer_allocations[buffer_index],
-        0, sizeof(ViewProjectionTransform));
+        0, sizeof(ViewProjectionTransform)
+    );
 
     if (rslt != VK_SUCCESS) {
-        std::stringstream msg;
-        msg << "Unable to update view / projection buffer. Error code: " << rslt;
-        throw std::runtime_error(msg.str());
+        throw std::runtime_error(
+            std::format(
+                "Unable to update view / projection buffer. Error code: {}", 
+                vk::to_string(vk::Result(rslt))
+            )
+        );
     }
 }
 
@@ -228,193 +240,174 @@ void gfx::SceneUniformSet::updateLightListBuffer(uint32_t buffer_index) {
         allocator,
         &m_lights,
         m_light_list_buffer_allocations[buffer_index],
-        0, sizeof(m_lights));
+        0, sizeof(m_lights)
+    );
 
     if (rslt != VK_SUCCESS) {
-        std::stringstream msg;
-        msg << "Unable to update light list buffer. Error code: " << rslt;
-        throw std::runtime_error(msg.str());
+        throw std::runtime_error(
+            std::format(
+                "Unable to update light list buffer. Error code: {}",
+                vk::to_string(vk::Result(rslt))
+            )
+        );
     }
 }
 
 void gfx::SceneUniformSet::initUniformBuffers() {
     System *gfx = m_uniforms->system();
+    uint32_t num_buffers = m_uniforms->numFrames();
 
-    if (m_view_projection_buffers.empty()) {
-        uint32_t num_buffers = static_cast<uint32_t>(gfx->swapchain().imageViews().size());
-        VkDeviceSize buffer_size = sizeof(ViewProjectionTransform);
-        m_view_projection_buffers.resize(num_buffers, VK_NULL_HANDLE);
-        m_view_projection_buffer_allocations.resize(num_buffers, VK_NULL_HANDLE);
-        for (uint32_t i = 0; i < num_buffers; ++i) {
-            gfx->createBuffer(
-                buffer_size,
-                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
-                m_view_projection_buffers[i],
-                m_view_projection_buffer_allocations[i]);
+    if (!m_view_projection_buffers.empty()) {
+        for (auto &alloc : m_view_projection_buffer_allocations) {
+            vmaFreeMemory(gfx->allocator(), alloc);
         }
+        m_view_projection_buffers.clear();
+        m_view_projection_buffer_allocations.clear();
     }
 
-    if (m_light_list_buffers.empty()) {
-        uint32_t num_buffers = static_cast<uint32_t>(gfx->swapchain().imageViews().size());
-        VkDeviceSize buffer_size = sizeof(m_lights);
-        m_light_list_buffers.resize(num_buffers, VK_NULL_HANDLE);
-        m_light_list_buffer_allocations.resize(num_buffers, VK_NULL_HANDLE);
-        for (uint32_t i = 0; i < num_buffers; ++i) {
-            gfx->createBuffer(
-                buffer_size,
-                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
-                m_light_list_buffers[i],
-                m_light_list_buffer_allocations[i]);
+    vk::DeviceSize vp_buffer_size = sizeof(m_view_projection);
+    for (uint32_t i = 0; i < num_buffers; ++i) {
+        auto [buffer, allocation] = gfx->createBuffer(
+            vp_buffer_size,
+            vk::BufferUsageFlagBits::eUniformBuffer,
+            VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
+        );
+
+        m_view_projection_buffers.emplace_back(std::move(buffer));
+        m_view_projection_buffer_allocations.push_back(allocation);
+    }
+
+    if (!m_light_list_buffers.empty()) {
+        for (auto &alloc : m_light_list_buffer_allocations) {
+            vmaFreeMemory(gfx->allocator(), alloc);
         }
-    }
-}
-
-void gfx::SceneUniformSet::cleanupUniformBuffers() {
-    System *gfx = m_uniforms->system();
-
-    for (int i = 0; i < m_view_projection_buffers.size(); ++i) {
-        gfx->destroyBuffer(m_view_projection_buffers[i], m_view_projection_buffer_allocations[i]);
+        m_light_list_buffers.clear();
+        m_light_list_buffer_allocations.clear();
     }
 
-    for (int i = 0; i < m_light_list_buffers.size(); ++i) {
-        gfx->destroyBuffer(m_light_list_buffers[i], m_light_list_buffer_allocations[i]);
+    vk::DeviceSize light_list_buffer_size = sizeof(m_lights);
+    for (uint32_t i = 0; i < num_buffers; ++i) {
+        auto [buffer, allocation] = gfx->createBuffer(
+            light_list_buffer_size,
+            vk::BufferUsageFlagBits::eUniformBuffer,
+            VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
+        );
+        m_light_list_buffers.emplace_back(std::move(buffer));
+        m_light_list_buffer_allocations.push_back(allocation);
     }
-
-    m_view_projection_buffers.clear();
-    m_view_projection_buffer_allocations.clear();
-    m_light_list_buffers.clear();
-    m_light_list_buffer_allocations.clear();
 }
 
 void gfx::SceneUniformSet::initDescriptorSets() {
-    if (m_descriptor_sets.size() > 0) {
-        return;
-    }
+    m_descriptor_sets.clear();
 
     System *gfx = m_uniforms->system();
     const vk::raii::Device &device = gfx->device();
-    uint32_t num_images = static_cast<uint32_t>(gfx->swapchain().images().size());
+    uint32_t num_sets = m_uniforms->numFrames();
 
-    std::vector<VkDescriptorSetLayout> layouts{num_images, c_descriptor_set_layout};
-    m_descriptor_sets.resize(num_images, VK_NULL_HANDLE);
+    std::vector<vk::DescriptorSetLayout> layouts{num_sets, *descriptorSetLayout()};
 
-    VkDescriptorSetAllocateInfo ds_ai;
-    ds_ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    ds_ai.pNext = nullptr;
-    ds_ai.descriptorPool = m_uniforms->descriptorPool();
-    ds_ai.descriptorSetCount = num_images;
-    ds_ai.pSetLayouts = layouts.data();
+    vk::DescriptorSetAllocateInfo ds_ai = vk::DescriptorSetAllocateInfo{
+        .descriptorPool = *m_uniforms->descriptorPool(),
+    }.setSetLayouts(layouts);
 
-    VkResult rslt = vkAllocateDescriptorSets(*device, &ds_ai, m_descriptor_sets.data());
-    if (rslt != VK_SUCCESS) {
-        std::stringstream msg;
-        msg << "Unable to allocate descriptor sets. Error code: " << rslt;
-        throw std::runtime_error(msg.str());
+    m_descriptor_sets = device.allocateDescriptorSets(ds_ai);
+
+    std::vector<vk::WriteDescriptorSet> writes{};
+    for (uint32_t i = 0; i < num_sets; ++i) {
+        vk::DescriptorBufferInfo vp_buffer_info{
+            .buffer = *m_view_projection_buffers[i],
+            .offset = 0,
+            .range = sizeof(ViewProjectionTransform),
+        };
+
+        vk::WriteDescriptorSet vp_write = vk::WriteDescriptorSet{
+            .dstSet = *m_descriptor_sets[i],
+            .dstBinding = 0,
+            .dstArrayElement = 0,
+            .descriptorType = vk::DescriptorType::eUniformBuffer,
+        }.setBufferInfo(vp_buffer_info);
+
+        writes.push_back(vp_write);
+
+        vk::DescriptorBufferInfo light_list_buffer_info{
+            .buffer = *m_light_list_buffers[i],
+            .offset = 0,
+            .range = sizeof(m_lights),
+        };
+
+        vk::WriteDescriptorSet light_list_write = vk::WriteDescriptorSet{
+            .dstSet = *m_descriptor_sets[i],
+            .dstBinding = 1,
+            .dstArrayElement = 0,
+            .descriptorType = vk::DescriptorType::eUniformBuffer,
+        }.setBufferInfo(light_list_buffer_info);
+
+        writes.push_back(light_list_write);
     }
 
-    for (uint32_t i = 0; i < num_images; ++i) {
-        VkDescriptorBufferInfo dbi0;
-        dbi0.buffer = m_view_projection_buffers[i];
-        dbi0.offset = 0;
-        dbi0.range = sizeof(ViewProjectionTransform);
-
-        std::array<VkWriteDescriptorSet, 2> dsc_writes{};
-
-        dsc_writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        dsc_writes[0].pNext = nullptr;
-        dsc_writes[0].dstSet = m_descriptor_sets[i];
-        dsc_writes[0].dstBinding = 0;
-        dsc_writes[0].dstArrayElement = 0;
-        dsc_writes[0].descriptorCount = 1;
-        dsc_writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        dsc_writes[0].pBufferInfo = &dbi0;
-        dsc_writes[0].pImageInfo = nullptr;
-        dsc_writes[0].pTexelBufferView = nullptr;
-
-        VkDescriptorBufferInfo dbi1;
-        dbi1.buffer = m_light_list_buffers[i];
-        dbi1.offset = 0;
-        dbi1.range = sizeof(m_lights);
-
-        dsc_writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        dsc_writes[1].pNext = nullptr;
-        dsc_writes[1].dstSet = m_descriptor_sets[i];
-        dsc_writes[1].dstBinding = 1;
-        dsc_writes[1].dstArrayElement = 0;
-        dsc_writes[1].descriptorCount = 1;
-        dsc_writes[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        dsc_writes[1].pBufferInfo = &dbi1;
-        dsc_writes[1].pImageInfo = nullptr;
-        dsc_writes[1].pTexelBufferView = nullptr;
-
-        vkUpdateDescriptorSets(*device, static_cast<uint32_t>(dsc_writes.size()), dsc_writes.data(), 0, nullptr);
-    }
+    device.updateDescriptorSets(writes, {});
 }
 
-VkDescriptorSetLayout gfx::ModelUniformSet::c_descriptor_set_layout = VK_NULL_HANDLE;
+vk::raii::DescriptorSetLayout *gfx::ModelUniformSet::c_descriptor_set_layout = nullptr;
 
-gfx::ModelUniformSet::ModelUniformSet(Uniforms *uniforms)
-    : UniformSet(uniforms),
-      m_model_transform{1.0},
-      m_model_buffers{},
-      m_model_buffer_allocations{}
+gfx::ModelUniformSet::ModelUniformSet()
+: UniformSet(),
+  m_model_transform{},
+  m_model_buffers{},
+  m_model_buffer_allocations{}
 {}
 
-gfx::ModelUniformSet::~ModelUniformSet() {
-    dispose();
-}
-
-void gfx::ModelUniformSet::init() {
+gfx::ModelUniformSet::ModelUniformSet(Uniforms *uniforms)
+: UniformSet(uniforms),
+    m_model_transform{1.0},
+    m_model_buffers{},
+    m_model_buffer_allocations{}
+{
     initUniformBuffers();
-    UniformSet::init();
 }
 
-void gfx::ModelUniformSet::dispose() {
-    UniformSet::dispose();
-    cleanupUniformBuffers();
+gfx::ModelUniformSet::ModelUniformSet(ModelUniformSet &&other)
+: UniformSet(std::move(other))
+{
+    *this = std::move(other);
 }
 
-void gfx::ModelUniformSet::initDescriptorSetLayout(System *gfx) {
-    if (c_descriptor_set_layout != VK_NULL_HANDLE) {
+gfx::ModelUniformSet::~ModelUniformSet() {
+    for (auto &alloc : m_model_buffer_allocations) {
+        vmaFreeMemory(m_uniforms->system()->allocator(), alloc);
+    }
+}
+
+gfx::ModelUniformSet &gfx::ModelUniformSet::operator=(ModelUniformSet &&other) {
+    m_model_transform = other.m_model_transform;
+    std::swap(m_model_buffers, other.m_model_buffers);
+    std::swap(m_model_buffer_allocations, other.m_model_buffer_allocations);
+    return *this;
+}
+
+void gfx::ModelUniformSet::initDescriptorSetLayout(System *gfx, Uniforms *owner) {
+    if (c_descriptor_set_layout != nullptr) {
         return;
     }
 
     const vk::raii::Device &device = gfx->device();
 
-    std::array<VkDescriptorSetLayoutBinding, 1> bindings;
-    bindings[0].binding = 0;
-    bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    bindings[0].descriptorCount = 1;
-    bindings[0].stageFlags = VK_SHADER_STAGE_ALL;
-    bindings[0].pImmutableSamplers = nullptr;
+    vk::DescriptorSetLayoutBinding binding{
+        .binding = 0,
+        .descriptorType = vk::DescriptorType::eUniformBuffer,
+        .descriptorCount = 1,
+        .stageFlags = vk::ShaderStageFlagBits::eAll,
+    };
 
-    VkDescriptorSetLayoutCreateInfo dsl_ci;
-    dsl_ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    dsl_ci.pNext = nullptr;
-    dsl_ci.flags = 0;
-    dsl_ci.bindingCount = static_cast<uint32_t>(bindings.size());
-    dsl_ci.pBindings = bindings.data();
+    vk::DescriptorSetLayoutCreateInfo dsl_ci = vk::DescriptorSetLayoutCreateInfo{}
+        .setBindings(binding);
 
-    VkResult rslt = vkCreateDescriptorSetLayout(*device, &dsl_ci, nullptr, &c_descriptor_set_layout);
-    if (rslt != VK_SUCCESS) {
-        std::stringstream msg;
-        msg << "Unable to create descriptor set layout. Error code: " << rslt;
-        throw std::runtime_error(msg.str());
-    }
+    vk::raii::DescriptorSetLayout layout = device.createDescriptorSetLayout(dsl_ci);
+    c_descriptor_set_layout = owner->registerDescriptorSetLayout(std::move(layout));
 }
 
-void gfx::ModelUniformSet::cleanupDescriptorSetLayout(System *gfx) {
-    const vk::raii::Device &device = gfx->device();
-    if (device != VK_NULL_HANDLE && c_descriptor_set_layout != VK_NULL_HANDLE) {
-        vkDestroyDescriptorSetLayout(*device, c_descriptor_set_layout, nullptr);
-        c_descriptor_set_layout = VK_NULL_HANDLE;
-    }
-}
-
-VkDescriptorSetLayout gfx::ModelUniformSet::descriptorSetLayout() {
-    return c_descriptor_set_layout;
+const vk::raii::DescriptorSetLayout &gfx::ModelUniformSet::descriptorSetLayout() {
+    return *c_descriptor_set_layout;
 }
 
 void gfx::ModelUniformSet::setTransform(const glm::mat4x4 &model) {
@@ -428,89 +421,76 @@ void gfx::ModelUniformSet::updateModelBuffer(uint32_t buffer_index) {
         allocator,
         glm::value_ptr(m_model_transform),
         m_model_buffer_allocations[buffer_index],
-        0, sizeof(m_model_transform));
+        0, sizeof(m_model_transform)
+    );
 
     if (rslt != VK_SUCCESS) {
-        std::stringstream msg;
-        msg << "Unable to update light list buffer. Error code: " << rslt;
-        throw std::runtime_error(msg.str());
+        throw std::runtime_error(
+            std::format(
+                "Unable to update model transform buffer. Error code: {}",
+                vk::to_string(vk::Result(rslt))
+            )
+        );
     }
 }
 
 void gfx::ModelUniformSet::initUniformBuffers() {
     System *gfx = m_uniforms->system();
+    uint32_t num_buffers = m_uniforms->numFrames();
 
-    if (m_model_buffers.empty()) {
-        uint32_t num_buffers = static_cast<uint32_t>(gfx->swapchain().imageViews().size());
-        VkDeviceSize buffer_size = sizeof(m_model_transform);
-        m_model_buffers.resize(num_buffers, VK_NULL_HANDLE);
-        m_model_buffer_allocations.resize(num_buffers, nullptr);
-        for (uint32_t i = 0; i < num_buffers; ++i) {
-            gfx->createBuffer(
-                buffer_size,
-                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
-                m_model_buffers[i],
-                m_model_buffer_allocations[i]);
+    if (!m_model_buffers.empty()) {
+        for (auto &alloc : m_model_buffer_allocations) {
+            vmaFreeMemory(gfx->allocator(), alloc);
         }
-    }
-}
-
-void gfx::ModelUniformSet::cleanupUniformBuffers() {
-    System *gfx = m_uniforms->system();
-
-    for (int i = 0; i < m_model_buffers.size(); ++i) {
-        gfx->destroyBuffer(m_model_buffers[i], m_model_buffer_allocations[i]);
+        m_model_buffers.clear();
+        m_model_buffer_allocations.clear();
     }
 
-    m_model_buffers.clear();
-    m_model_buffer_allocations.clear();
+    vk::DeviceSize buffer_size = sizeof(m_model_transform);
+    for (uint32_t i = 0; i < num_buffers; ++i) {
+        auto [buffer, allocation] = gfx->createBuffer(
+            buffer_size,
+            vk::BufferUsageFlagBits::eUniformBuffer,
+            VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
+        );
+
+        m_model_buffers.emplace_back(std::move(buffer));
+        m_model_buffer_allocations.push_back(allocation);
+    }
 }
 
 void gfx::ModelUniformSet::initDescriptorSets() {
-    if (m_descriptor_sets.size() > 0) {
-        return;
-    }
+    m_descriptor_sets.clear();
 
     System *gfx = m_uniforms->system();
     const vk::raii::Device &device = gfx->device();
-    uint32_t num_images = static_cast<uint32_t>(gfx->swapchain().images().size());
+    uint32_t num_sets = m_uniforms->numFrames();
 
-    std::vector<VkDescriptorSetLayout> layouts{num_images, c_descriptor_set_layout};
-    m_descriptor_sets.resize(num_images, VK_NULL_HANDLE);
+    std::vector<vk::DescriptorSetLayout> layouts{num_sets, *descriptorSetLayout()};
 
-    VkDescriptorSetAllocateInfo ds_ai;
-    ds_ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    ds_ai.pNext = nullptr;
-    ds_ai.descriptorPool = m_uniforms->descriptorPool();
-    ds_ai.descriptorSetCount = num_images;
-    ds_ai.pSetLayouts = layouts.data();
+    vk::DescriptorSetAllocateInfo ds_ai = vk::DescriptorSetAllocateInfo{
+        .descriptorPool = *m_uniforms->descriptorPool(),
+    }.setSetLayouts(layouts);
 
-    VkResult rslt = vkAllocateDescriptorSets(*device, &ds_ai, m_descriptor_sets.data());
-    if (rslt != VK_SUCCESS) {
-        std::stringstream msg;
-        msg << "Unable to allocate descriptor sets. Error code: " << rslt;
-        throw std::runtime_error(msg.str());
+    m_descriptor_sets = device.allocateDescriptorSets(ds_ai);
+
+    std::vector<vk::WriteDescriptorSet> writes{};
+    for (uint32_t i = 0; i < num_sets; ++i) {
+        vk::DescriptorBufferInfo vp_buffer_info{
+            .buffer = *m_model_buffers[i],
+            .offset = 0,
+            .range = sizeof(m_model_transform),
+        };
+
+        vk::WriteDescriptorSet vp_write = vk::WriteDescriptorSet{
+            .dstSet = *m_descriptor_sets[i],
+            .dstBinding = 0,
+            .dstArrayElement = 0,
+            .descriptorType = vk::DescriptorType::eUniformBuffer,
+        }.setBufferInfo(vp_buffer_info);
+
+        writes.push_back(vp_write);
     }
 
-    for (uint32_t i = 0; i < num_images; ++i) {
-        VkDescriptorBufferInfo dbi0;
-        dbi0.buffer = m_model_buffers[i];
-        dbi0.offset = 0;
-        dbi0.range = sizeof(m_model_transform);
-
-        std::array<VkWriteDescriptorSet, 1> dsc_writes{};
-        dsc_writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        dsc_writes[0].pNext = nullptr;
-        dsc_writes[0].dstSet = m_descriptor_sets[i];
-        dsc_writes[0].dstBinding = 0;
-        dsc_writes[0].dstArrayElement = 0;
-        dsc_writes[0].descriptorCount = 1;
-        dsc_writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        dsc_writes[0].pBufferInfo = &dbi0;
-        dsc_writes[0].pImageInfo = nullptr;
-        dsc_writes[0].pTexelBufferView = nullptr;
-
-        vkUpdateDescriptorSets(*device, static_cast<uint32_t>(dsc_writes.size()), dsc_writes.data(), 0, nullptr);
-    }
+    device.updateDescriptorSets(writes, {});
 }

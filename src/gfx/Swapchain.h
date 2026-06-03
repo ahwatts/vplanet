@@ -11,15 +11,15 @@ namespace gfx {
 
     class Swapchain {
     public:
-        Swapchain(System *system);
         Swapchain();
-        Swapchain(const Swapchain &other) = delete;
-        Swapchain(Swapchain &&other);
+        Swapchain(System *system);
+        // Swapchain(const Swapchain &other) = delete;
+        // Swapchain(Swapchain &&other) = default;
         
-        ~Swapchain();
+        // ~Swapchain();
         
-        Swapchain &operator=(const Swapchain &other) = delete;
-        Swapchain &operator=(Swapchain &&other);
+        // Swapchain &operator=(const Swapchain &other) = delete;
+        // Swapchain &operator=(Swapchain &&other) = default;
 
         const vk::raii::SwapchainKHR& swapchain() const;
         const std::vector<vk::Image>& images() const;

@@ -12,18 +12,21 @@ namespace gfx {
 
     class Pipeline {
     public:
+        Pipeline();
         Pipeline(Renderer *renderer);
+        Pipeline(const Pipeline &other) = delete;
+        Pipeline(Pipeline &&other) = default;
+
         virtual ~Pipeline();
 
-        void init();
-        void dispose();
+        Pipeline &operator=(const Pipeline &other) = delete;
+        Pipeline &operator=(Pipeline &&other) = default;
 
     protected:
         virtual void initPipeline() = 0;
-        void cleanupPipeline();
 
         Renderer *m_renderer;
-        VkPipeline m_pipeline;
+        vk::raii::Pipeline m_pipeline;
     };
 }
 

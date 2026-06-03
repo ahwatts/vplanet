@@ -54,8 +54,8 @@ gfx::System::System(GLFWwindow *window, bool debug)
   m_commands{},
   m_swapchain{},
   m_depth_buffer{},
-  m_renderer{this},
-  m_uniforms{this}
+  m_renderer{},
+  m_uniforms{}
 {
     initInstance();
 
@@ -70,16 +70,13 @@ gfx::System::System(GLFWwindow *window, bool debug)
     initSynchronizationObjects();
     m_commands = Commands(this);
     m_depth_buffer = DepthBuffer(this);
-    m_uniforms.init();
-    m_renderer.init();
+    m_uniforms = Uniforms(this, MAX_FRAMES_IN_FLIGHT);
+    m_renderer = Renderer(this);
 }
 
 gfx::System::~System() {
     m_commands.waitGraphicsIdle();
     m_commands.waitPresentIdle();
-
-    m_renderer.dispose();
-    m_uniforms.dispose();
     cleanupAllocator();
 }
 
@@ -179,17 +176,17 @@ void gfx::System::writeLightList(uint32_t buffer_index) {
     m_renderer.writeLightList(buffer_index);
 }
 
-void gfx::System::recordCommandBuffers() {
-    const std::vector<vk::raii::CommandBuffer> &draw_commands = m_commands.drawCommands();
+// void gfx::System::recordCommandBuffers() {
+//     const std::vector<vk::raii::CommandBuffer> &draw_commands = m_commands.drawCommands();
 
-    for (uint32_t i = 0; i < draw_commands.size(); ++i) {
-        const vk::raii::CommandBuffer &commands = draw_commands[i];
-        vk::CommandBufferBeginInfo cb_bi{.flags = vk::CommandBufferUsageFlagBits::eSimultaneousUse};
-        commands.begin(cb_bi);
-        m_renderer.recordCommands(*commands, i);
-        commands.end();
-    }
-}
+//     for (uint32_t i = 0; i < draw_commands.size(); ++i) {
+//         const vk::raii::CommandBuffer &commands = draw_commands[i];
+//         vk::CommandBufferBeginInfo cb_bi{.flags = vk::CommandBufferUsageFlagBits::eSimultaneousUse};
+//         commands.begin(cb_bi);
+//         m_renderer.recordCommands(commands, i);
+//         commands.end();
+//     }
+// }
 
 uint32_t gfx::System::startFrame() {
     uint32_t image_index = UINT32_MAX;
@@ -274,73 +271,87 @@ uint32_t gfx::System::chooseMemoryType(uint32_t type_filter, VkMemoryPropertyFla
     return UINT32_MAX;
 }
 
-void gfx::System::createBuffer(
-    size_t size,
-    VkBufferUsageFlags usage,
-    VmaAllocationCreateFlags allocation_flags,
-    VkBuffer &buffer,
-    VmaAllocation &allocation)
-{
-    VkBufferCreateInfo buf_ci{};
-    buf_ci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    buf_ci.size = size;
-    buf_ci.usage = usage;
-    buf_ci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+std::pair<vk::raii::Buffer, VmaAllocation> gfx::System::createBuffer(
+    vk::DeviceSize size, 
+    vk::BufferUsageFlags usage,
+    VmaAllocationCreateFlags allocation_flags
+) {
+    vk::BufferCreateInfo buf_ci{
+        .size = size,
+        .usage = usage,
+        .sharingMode = vk::SharingMode::eExclusive,
+    };
 
     VmaAllocationCreateInfo alloc_ci{};
     alloc_ci.usage = VMA_MEMORY_USAGE_AUTO;
     alloc_ci.flags = allocation_flags;
 
-    VkResult rslt = vmaCreateBuffer(m_allocator, &buf_ci, &alloc_ci, &buffer, &allocation, nullptr);
+    VkBuffer buffer;
+    VmaAllocation allocation;
+    VkResult rslt = vmaCreateBuffer(
+        m_allocator,
+        static_cast<VkBufferCreateInfo *>(buf_ci),
+        &alloc_ci,
+        &buffer,
+        &allocation,
+        nullptr
+    );
+
     if (rslt != VK_SUCCESS) {
-        std::stringstream msg;
-        msg << "Unable to create buffer. Error code: " << rslt;
-        throw std::runtime_error(msg.str());
+        throw std::runtime_error(
+            std::format(
+                "Failed to create buffer. Error code: {}",
+                vk::to_string(vk::Result(rslt))
+            )
+        );
     }
+
+    return {vk::raii::Buffer(m_device, buffer), allocation};
 }
 
-void gfx::System::createBufferWithData(
-    const void *data,
-    size_t size,
-    VkBufferUsageFlags usage,
-    VkBuffer &buffer,
-    VmaAllocation &allocation)
-{
-    // Create a staging buffer.
-    VkBuffer staging_buffer{VK_NULL_HANDLE};
-    VmaAllocation staging_alloc{VK_NULL_HANDLE};
-    createBuffer(
+std::pair<vk::raii::Buffer, VmaAllocation> gfx::System::createBufferWithData(
+    const void *data, 
+    size_t size, 
+    vk::BufferUsageFlags usage,
+    VmaAllocationCreateFlags allocation_flags
+) {
+    // Create the staging buffer.
+    auto [staging_buffer, staging_allocation] = createBuffer(
         size,
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
-        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT, 
-        staging_buffer, 
-        staging_alloc);
+        vk::BufferUsageFlagBits::eTransferSrc,
+        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
+    );
 
+    // Copy data to the staging buffer.
+    VkResult rslt = vmaCopyMemoryToAllocation(m_allocator, data, staging_allocation, 0, size);
+
+    if (rslt != VK_SUCCESS) {
+        throw std::runtime_error(
+            std::format(
+                "Failed to copy data to the staging buffer. Error code: {}",
+                vk::to_string(vk::Result(rslt))
+            )
+        );
+    }
 
     // Create the real buffer.
-    createBuffer(
+    auto [buffer, allocation] = createBuffer(
         size,
-        usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        0,
-        buffer,
-        allocation);
-
-    // Copy the data to the staging buffer.
-    VkResult rslt = vmaCopyMemoryToAllocation(m_allocator, data, staging_alloc, 0, size);
-    if (rslt != VK_SUCCESS) {
-        std::stringstream msg{};
-        msg << "UNable to copy data to the staging buffer. Error code: " << rslt;
-        throw std::runtime_error(msg.str());
-    }
+        usage | vk::BufferUsageFlagBits::eTransferDst,
+        allocation_flags
+    );
 
     // Copy the staging buffer to the real buffer.
     copyBuffer(buffer, staging_buffer, size);
 
-    // Clean up the staging buffer.
-    destroyBuffer(staging_buffer, staging_alloc);
+    // Free the staging buffer allocation. (The staging buffer will be freed by
+    // RAII)
+    vmaFreeMemory(m_allocator, staging_allocation);
+
+    return {std::move(buffer), allocation};
 }
 
-void gfx::System::copyBuffer(VkBuffer dst, VkBuffer src, VkDeviceSize size) {
+void gfx::System::copyBuffer(const vk::raii::Buffer &dst, const vk::raii::Buffer &src, VkDeviceSize size) {
     vk::BufferCopy region{
         .srcOffset = 0,
         .dstOffset = 0,
@@ -348,31 +359,8 @@ void gfx::System::copyBuffer(VkBuffer dst, VkBuffer src, VkDeviceSize size) {
     };
 
     vk::raii::CommandBuffer cb = m_commands.beginOneShot();
-    cb.copyBuffer(src, dst, region);
+    cb.copyBuffer(*src, *dst, region);
     m_commands.endOneShot(std::move(cb));
-}
-
-void gfx::System::destroyBuffer(VkBuffer buffer, VmaAllocation allocation) {
-    if (m_allocator != VK_NULL_HANDLE) {
-        vmaDestroyBuffer(m_allocator, buffer, allocation);
-    }
-}
-
-void gfx::System::createShaderModule(const std::vector<unsigned char> &rsrc, VkShaderModule &shader) {
-    VkShaderModuleCreateInfo sm_ci;
-    sm_ci.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    sm_ci.pNext = nullptr;
-    sm_ci.flags = 0;
-    sm_ci.codeSize = rsrc.size();
-    sm_ci.pCode = reinterpret_cast<const uint32_t*>(rsrc.data());
-
-    VkShaderModule module{VK_NULL_HANDLE};
-    VkResult rslt = vkCreateShaderModule(*m_device, &sm_ci, nullptr, &shader);
-    if (rslt != VK_SUCCESS) {
-        std::stringstream msg;
-        msg << "Unable to create shader module. Error code: " << rslt;
-        throw std::runtime_error(msg.str());
-    }
 }
 
 void gfx::System::initInstance() {

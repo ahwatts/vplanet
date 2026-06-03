@@ -12,15 +12,15 @@ namespace gfx {
 
     class Commands {
     public:
-        Commands(System *system);
         Commands();
-        Commands(const Commands &other) = delete;
-        Commands(Commands &&other);
+        Commands(System *system);        
+        // Commands(const Commands &other) = delete;
+        // Commands(Commands &&other);
 
-        ~Commands();
+        // ~Commands();
 
-        Commands &operator=(const Commands &other) = delete;
-        Commands &operator=(Commands &&other);
+        // Commands &operator=(const Commands &other) = delete;
+        // Commands &operator=(Commands &&other);
 
         const vk::raii::Queue &graphicsQueue() const;
         void waitGraphicsIdle() const;

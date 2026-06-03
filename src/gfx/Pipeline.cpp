@@ -6,27 +6,14 @@
 #include "Renderer.h"
 #include "System.h"
 
-gfx::Pipeline::Pipeline(Renderer *renderer)
-    : m_renderer{renderer},
-      m_pipeline{VK_NULL_HANDLE}
+gfx::Pipeline::Pipeline()
+: m_renderer{nullptr},
+  m_pipeline{nullptr}
 {}
 
-gfx::Pipeline::~Pipeline() {
-    dispose();
-}
-
-void gfx::Pipeline::init() {
+gfx::Pipeline::Pipeline(Renderer *renderer) : Pipeline() {
+    m_renderer = renderer;
     initPipeline();
 }
 
-void gfx::Pipeline::dispose() {
-    cleanupPipeline();
-}
-
-void gfx::Pipeline::cleanupPipeline() {
-    const vk::raii::Device &device = m_renderer->system()->device();
-    if (device != VK_NULL_HANDLE && m_pipeline != VK_NULL_HANDLE) {
-        vkDestroyPipeline(*device, m_pipeline, nullptr);
-        m_pipeline = VK_NULL_HANDLE;
-    }
-}
+gfx::Pipeline::~Pipeline() {}

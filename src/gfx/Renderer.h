@@ -16,15 +16,18 @@ namespace gfx {
 
     class Renderer {
     public:
+        Renderer();
         Renderer(System *system);
-        ~Renderer();
+        // Renderer(const Renderer &other) = delete;
+        // Renderer(Renderer &&other) = default;
 
-        void init();
-        void dispose();
+        // ~Renderer();
+
+        // Renderer &operator=(const Renderer &other) = delete;
+        // Renderer &operator=(Renderer &&other);
 
         System* system();
-        VkPipelineLayout pipelineLayout() const;
-        VkRenderPass renderPass() const;
+        const vk::raii::PipelineLayout &pipelineLayout() const;
         TerrainPipeline& terrainPipeline();
         OceanPipeline& oceanPipeline();
 
@@ -35,22 +38,13 @@ namespace gfx {
         void disableLight(uint32_t index);
         void writeLightList(uint32_t buffer_index);
 
-        void recordCommands(VkCommandBuffer cmd_buf, uint32_t fb_index);
+        void recordCommands(const vk::raii::CommandBuffer &cmd_buf, uint32_t image_index, uint32_t frame_index);
 
     private:
         void initPipelineLayout();
-        void cleanupPipelineLayout();
-
-        void initRenderPass();
-        void cleanupRenderPass();
-
-        void initFramebuffers();
-        void cleanupFramebuffers();
 
         System *m_system;
-        VkPipelineLayout m_pipeline_layout;
-        VkRenderPass m_render_pass;
-        std::vector<VkFramebuffer> m_framebuffers;
+        vk::raii::PipelineLayout m_pipeline_layout;
 
         SceneUniformSet m_uniforms;
         OceanPipeline m_ocean_pipeline;

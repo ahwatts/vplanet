@@ -27,21 +27,21 @@ gfx::Swapchain::Swapchain(System *system) : Swapchain() {
     initImageViews();
 }
 
-gfx::Swapchain::Swapchain(Swapchain &&other) : Swapchain() {
-    *this = std::move(other);
-}
+// gfx::Swapchain::Swapchain(Swapchain &&other) : Swapchain() {
+//     *this = std::move(other);
+// }
 
-gfx::Swapchain::~Swapchain() {}
+// gfx::Swapchain::~Swapchain() {}
 
-gfx::Swapchain &gfx::Swapchain::operator=(Swapchain &&other) {
-    m_system = other.m_system;
-    std::swap(m_swapchain, other.m_swapchain);
-    std::swap(m_images, other.m_images);
-    std::swap(m_image_views, other.m_image_views);
-    m_format = other.m_format;
-    m_extent = other.m_extent;
-    return *this;
-}
+// gfx::Swapchain &gfx::Swapchain::operator=(Swapchain &&other) {
+//     m_system = other.m_system;
+//     std::swap(m_swapchain, other.m_swapchain);
+//     std::swap(m_images, other.m_images);
+//     std::swap(m_image_views, other.m_image_views);
+//     m_format = other.m_format;
+//     m_extent = other.m_extent;
+//     return *this;
+// }
 
 const vk::raii::SwapchainKHR &gfx::Swapchain::swapchain() const
 {
