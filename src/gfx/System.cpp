@@ -108,6 +108,10 @@ uint32_t gfx::System::presentQueueFamily() const {
     return m_present_queue_family;
 }
 
+uint32_t gfx::System::numFrames() const {
+    return MAX_FRAMES_IN_FLIGHT;
+}
+
 VmaAllocator gfx::System::allocator() const {
     return m_allocator;
 }
@@ -140,8 +144,12 @@ void gfx::System::setTerrainTransform(const glm::mat4x4 &xform) {
     m_renderer.terrainPipeline().setTransform(xform);
 }
 
-void gfx::System::writeTerrainTransform(uint32_t buffer_index) {
-    m_renderer.terrainPipeline().writeTransform(buffer_index);
+void gfx::System::writeTerrainTransform() {
+    writeTerrainTransform(m_frame_index);
+}
+
+void gfx::System::writeTerrainTransform(uint32_t frame_index) {
+    m_renderer.terrainPipeline().writeTransform(frame_index);
 }
 
 void gfx::System::setOceanGeometry(const std::vector<OceanVertex> &verts, const std::vector<uint32_t> &indices) {
@@ -152,16 +160,24 @@ void gfx::System::setOceanTransform(const glm::mat4x4 &xform) {
     m_renderer.oceanPipeline().setTransform(xform);
 }
 
-void gfx::System::writeOceanTransform(uint32_t buffer_index) {
-    m_renderer.oceanPipeline().writeTransform(buffer_index);
+void gfx::System::writeOceanTransform() {
+    writeOceanTransform(m_frame_index);
+}
+
+void gfx::System::writeOceanTransform(uint32_t frame_index) {
+    m_renderer.oceanPipeline().writeTransform(frame_index);
 }
 
 void gfx::System::setViewProjectionTransform(const ViewProjectionTransform &xform) {
     m_renderer.setViewProjectionTransform(xform);
 }
 
-void gfx::System::writeViewProjectionTransform(uint32_t buffer_index) {
-    m_renderer.writeViewProjectionTransform(buffer_index);
+void gfx::System::writeViewProjectionTransform() {
+    writeViewProjectionTransform(m_frame_index);
+}
+
+void gfx::System::writeViewProjectionTransform(uint32_t frame_index) {
+    m_renderer.writeViewProjectionTransform(frame_index);
 }
 
 void gfx::System::enableLight(uint32_t index, const glm::vec3 &direction) {
@@ -172,8 +188,12 @@ void gfx::System::disableLight(uint32_t index) {
     m_renderer.disableLight(index);
 }
 
-void gfx::System::writeLightList(uint32_t buffer_index) {
-    m_renderer.writeLightList(buffer_index);
+void gfx::System::writeLightList() {
+    writeLightList(m_frame_index);
+}
+
+void gfx::System::writeLightList(uint32_t frame_index) {
+    m_renderer.writeLightList(frame_index);
 }
 
 // void gfx::System::recordCommandBuffers() {
@@ -638,9 +658,12 @@ void gfx::System::initAllocator() {
 
         VkResult rslt = vmaCreateAllocator(&alloc_ci, &m_allocator);
         if (rslt != VK_SUCCESS) {
-            std::stringstream msg;
-            msg << "Unable to create memory allocator. Error code: " << rslt;
-            throw std::runtime_error{msg.str()};
+            throw std::runtime_error(
+                std::format(
+                    "Unable to create memory allocator. Error code: {}",
+                    vk::to_string(vk::Result(rslt))
+                )
+            );
         }
     }
 }

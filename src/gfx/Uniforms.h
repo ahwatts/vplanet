@@ -28,26 +28,28 @@ namespace gfx {
     public:
         Uniforms();
         Uniforms(System *system, uint32_t num_frames);
-        Uniforms(const Uniforms &other) = delete;
-        Uniforms(Uniforms &&other) = default;
+        // Uniforms(const Uniforms &other) = delete;
+        // Uniforms(Uniforms &&other) = default;
 
-        ~Uniforms();
+        // ~Uniforms();
 
-        Uniforms &operator=(const Uniforms &other) = delete;
-        Uniforms &operator=(Uniforms &&other) = default;
+        // Uniforms &operator=(const Uniforms &other) = delete;
+        // Uniforms &operator=(Uniforms &&other) = default;
 
         System* system();
         const vk::raii::DescriptorPool &descriptorPool() const;
         uint32_t numFrames() const;
-
-        vk::raii::DescriptorSetLayout *registerDescriptorSetLayout(vk::raii::DescriptorSetLayout &&layout);
+        const vk::raii::DescriptorSetLayout &sceneDescriptorSetLayout() const;
+        const vk::raii::DescriptorSetLayout &modelDescriptorSetLayout() const;
 
     private:
         void initDescriptorPool();
+        void initDescriptorSetLayouts();
 
         System *m_system;
         vk::raii::DescriptorPool m_descriptor_pool;
-        std::vector<vk::raii::DescriptorSetLayout> m_descriptor_set_layouts;
+        vk::raii::DescriptorSetLayout m_scene_descriptor_set_layout;
+        vk::raii::DescriptorSetLayout m_model_descriptor_set_layout;
         uint32_t m_num_frames;
     };
 
@@ -56,13 +58,14 @@ namespace gfx {
         UniformSet();
         UniformSet(Uniforms *uniforms);
         UniformSet(const UniformSet &other) = delete;
-        UniformSet(UniformSet &&other);
+        UniformSet(UniformSet &&other) = default;
 
         virtual ~UniformSet();
 
         UniformSet &operator=(const UniformSet &other) = delete;
-        UniformSet &operator=(UniformSet &&other);
+        UniformSet &operator=(UniformSet &&other) = default;
 
+        Uniforms *uniforms();
         const std::vector<vk::raii::DescriptorSet> &descriptorSets() const;
 
     protected:
@@ -77,15 +80,15 @@ namespace gfx {
         SceneUniformSet();
         SceneUniformSet(Uniforms *uniforms);
         SceneUniformSet(const SceneUniformSet &other) = delete;
-        SceneUniformSet(SceneUniformSet &&other);
+        SceneUniformSet(SceneUniformSet &&other) = default;
 
         virtual ~SceneUniformSet();
 
         SceneUniformSet &operator=(const SceneUniformSet &other) = delete;
-        SceneUniformSet &operator=(SceneUniformSet &&other);
+        SceneUniformSet &operator=(SceneUniformSet &&other) = default;
 
-        static void initDescriptorSetLayout(System *gfx, Uniforms *owner);
-        static const vk::raii::DescriptorSetLayout &descriptorSetLayout();
+        static vk::raii::DescriptorSetLayout createDescriptorSetLayout(System *gfx);
+        const vk::raii::DescriptorSetLayout &descriptorSetLayout() const;
 
         void setTransforms(const ViewProjectionTransform &xform);
         void updateViewProjectionBuffer(uint32_t buffer_index);
@@ -101,7 +104,6 @@ namespace gfx {
 
         virtual void initDescriptorSets();
 
-        static vk::raii::DescriptorSetLayout *c_descriptor_set_layout;
         ViewProjectionTransform m_view_projection;
         LightInfo m_lights[MAX_LIGHTS];
         std::vector<vk::raii::Buffer> m_view_projection_buffers;
@@ -115,15 +117,15 @@ namespace gfx {
         ModelUniformSet();
         ModelUniformSet(Uniforms *uniforms);
         ModelUniformSet(const ModelUniformSet &other) = delete;
-        ModelUniformSet(ModelUniformSet &&other);
+        ModelUniformSet(ModelUniformSet &&other) = default;
 
         virtual ~ModelUniformSet();
 
         ModelUniformSet &operator=(const ModelUniformSet &other) = delete;
-        ModelUniformSet &operator=(ModelUniformSet &&other);
+        ModelUniformSet &operator=(ModelUniformSet &&other) = default;
 
-        static void initDescriptorSetLayout(System *gfx, Uniforms *owner);
-        static const vk::raii::DescriptorSetLayout &descriptorSetLayout();
+        static vk::raii::DescriptorSetLayout createDescriptorSetLayout(System *gfx);
+        const vk::raii::DescriptorSetLayout &descriptorSetLayout() const;
 
         void setTransform(const glm::mat4x4 &model);
         void updateModelBuffer(uint32_t buffer_index);
@@ -135,7 +137,6 @@ namespace gfx {
 
         virtual void initDescriptorSets();
 
-        static vk::raii::DescriptorSetLayout *c_descriptor_set_layout;
         glm::mat4x4 m_model_transform;
         std::vector<vk::raii::Buffer> m_model_buffers;
         std::vector<VmaAllocation> m_model_buffer_allocations;

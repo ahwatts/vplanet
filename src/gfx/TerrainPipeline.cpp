@@ -16,125 +16,86 @@
 
 const std::vector<unsigned char> &TERRAIN_SHADER_BYTECODE = LOAD_RESOURCE(terrain_slang_spv);
 
-// const std::vector<unsigned char> dummy{};
-// const std::vector<unsigned char> &TERRAIN_VERT_BYTECODE = dummy; // LOAD_RESOURCE(terrain_vert_spv);
-// const std::vector<unsigned char> &TERRAIN_FRAG_BYTECODE = dummy; // LOAD_RESOURCE(terrain_frag_spv);
+gfx::TerrainPipeline::TerrainPipeline()
+: Pipeline{},
+  m_uniform_set{},
+  m_vertex_buffer{nullptr},
+  m_index_buffer{nullptr},
+  m_vertex_buffer_allocation{nullptr},
+  m_index_buffer_allocation{nullptr}
+{}  
 
-gfx::TerrainPipeline::TerrainPipeline(Renderer *renderer)
-    : Pipeline(renderer),
-      m_uniforms{&renderer->system()->uniforms()},
-    //   m_vertex_shader{VK_NULL_HANDLE},
-    //   m_fragment_shader{VK_NULL_HANDLE},
-      m_num_indices{0},
-      m_vertex_buffer{VK_NULL_HANDLE},
-      m_index_buffer{VK_NULL_HANDLE},
-      m_vertex_buffer_allocation{nullptr},
-      m_index_buffer_allocation{nullptr}
-{}
+gfx::TerrainPipeline::TerrainPipeline(Renderer *renderer) : TerrainPipeline() {
+    m_renderer = renderer;
+    m_uniform_set = ModelUniformSet(&m_renderer->system()->uniforms());
+    initPipeline();
+}
 
 gfx::TerrainPipeline::~TerrainPipeline() {
-    dispose();
-}
+    if (m_vertex_buffer_allocation != nullptr) {
+        vmaFreeMemory(m_renderer->system()->allocator(), m_vertex_buffer_allocation);
+        m_vertex_buffer_allocation = nullptr;
+    }
 
-void gfx::TerrainPipeline::init() {
-    initShaderModules();
-    m_uniforms.init();
-    Pipeline::init();
-}
-
-void gfx::TerrainPipeline::dispose() {
-    cleanupGeometryBuffers();
-    Pipeline::dispose();
-    m_uniforms.dispose();
-    cleanupShaderModules();
+    if (m_index_buffer_allocation != nullptr) {
+        vmaFreeMemory(m_renderer->system()->allocator(), m_index_buffer_allocation);
+        m_index_buffer_allocation = nullptr;
+    }
 }
 
 void gfx::TerrainPipeline::setGeometry(const std::vector<TerrainVertex> &verts, const std::vector<uint32_t> &indices) {
     System *gfx = m_renderer->system();
-    cleanupGeometryBuffers();
-    gfx->createBufferWithData(
+
+    if (m_vertex_buffer_allocation != nullptr) {
+        vmaFreeMemory(m_renderer->system()->allocator(), m_vertex_buffer_allocation);
+        m_vertex_buffer_allocation = nullptr;
+    }
+
+    if (m_index_buffer_allocation != nullptr) {
+        vmaFreeMemory(m_renderer->system()->allocator(), m_index_buffer_allocation);
+        m_index_buffer_allocation = nullptr;
+    }
+
+    std::tie(m_vertex_buffer, m_vertex_buffer_allocation) = gfx->createBufferWithData(
         verts.data(), verts.size() * sizeof(TerrainVertex),
-        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-        m_vertex_buffer, m_vertex_buffer_allocation);
-    gfx->createBufferWithData(
+        vk::BufferUsageFlagBits::eVertexBuffer,
+        0
+    );
+
+    std::tie(m_index_buffer, m_index_buffer_allocation) = gfx->createBufferWithData(
         indices.data(), indices.size() * sizeof(uint32_t),
-        VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-        m_index_buffer, m_index_buffer_allocation);
+        vk::BufferUsageFlagBits::eIndexBuffer, 0
+    );
+
     m_num_indices = static_cast<uint32_t>(indices.size());
 }
 
 void gfx::TerrainPipeline::setTransform(const glm::mat4x4 &xform) {
-    m_uniforms.setTransform(xform);
+    m_uniform_set.setTransform(xform);
 }
 
 void gfx::TerrainPipeline::writeTransform(uint32_t buffer_index) {
-    m_uniforms.updateModelBuffer(buffer_index);
+    m_uniform_set.updateModelBuffer(buffer_index);
 }
 
-void gfx::TerrainPipeline::cleanupGeometryBuffers() {
-    System *gfx = m_renderer->system();
+void gfx::TerrainPipeline::recordCommands(const vk::raii::CommandBuffer &cmd_buf, uint32_t frame_index) {
+    const vk::raii::PipelineLayout &layout = m_renderer->pipelineLayout();
+    const std::vector<vk::raii::DescriptorSet> &model_uniforms = m_uniform_set.descriptorSets();
 
-    gfx->destroyBuffer(m_vertex_buffer, m_vertex_buffer_allocation);
-    m_vertex_buffer = VK_NULL_HANDLE;
-    m_vertex_buffer_allocation = nullptr;
-
-    gfx->destroyBuffer(m_index_buffer, m_index_buffer_allocation);
-    m_index_buffer = VK_NULL_HANDLE;
-    m_index_buffer_allocation = nullptr;
-
-    m_num_indices = 0;
-}
-
-void gfx::TerrainPipeline::recordCommands(VkCommandBuffer cmd_buf, uint32_t fb_index) {
-    VkBuffer vertex_buffers[1] = { m_vertex_buffer };
-    VkDeviceSize vertex_buffer_offsets[1] = { 0 };
-
-    VkPipelineLayout pipeline_layout = m_renderer->pipelineLayout();
-    const std::vector<VkDescriptorSet> &model_uniforms = m_uniforms.descriptorSets();
-
-    vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
-    vkCmdBindVertexBuffers(cmd_buf, 0, 1, vertex_buffers, vertex_buffer_offsets);
-    vkCmdBindIndexBuffer(cmd_buf, m_index_buffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 1, 1, &model_uniforms[fb_index], 0, nullptr);
-    vkCmdDrawIndexed(cmd_buf, m_num_indices, 1, 0, 0, 0);
-}
-
-void gfx::TerrainPipeline::initShaderModules() {
-    // System *gfx = m_renderer->system();
-
-    // if (m_vertex_shader == VK_NULL_HANDLE) {
-    //     gfx->createShaderModule(TERRAIN_VERT_BYTECODE, m_vertex_shader);
-    // }
-
-    // if (m_fragment_shader == VK_NULL_HANDLE) {
-    //     gfx->createShaderModule(TERRAIN_FRAG_BYTECODE, m_fragment_shader);
-    // }
-}
-
-void gfx::TerrainPipeline::cleanupShaderModules() {
-    // const vk::raii::Device &device = m_renderer->system()->device();
-    // if (device != VK_NULL_HANDLE) {
-    //     if (m_vertex_shader != VK_NULL_HANDLE) {
-    //         vkDestroyShaderModule(*device, m_vertex_shader, nullptr);
-    //         m_vertex_shader = VK_NULL_HANDLE;
-    //     }
-
-    //     if (m_fragment_shader != VK_NULL_HANDLE) {
-    //         vkDestroyShaderModule(*device, m_fragment_shader, nullptr);
-    //         m_fragment_shader = VK_NULL_HANDLE;
-    //     }
-    // }
+    cmd_buf.bindPipeline(vk::PipelineBindPoint::eGraphics, *m_pipeline);
+    cmd_buf.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *layout, 1, *model_uniforms[frame_index], nullptr);
+    cmd_buf.bindVertexBuffers(0, *m_vertex_buffer, {0});
+    cmd_buf.bindIndexBuffer(*m_index_buffer, 0, vk::IndexType::eUint32);
+    cmd_buf.drawIndexed(m_num_indices, 1, 0, 0, 0);
 }
 
 void gfx::TerrainPipeline::initPipeline() {
-    if (m_pipeline != VK_NULL_HANDLE) {
-        return;
-    }
-
     System *system = m_renderer->system();
     const vk::raii::Device &device = system->device();
-    VkExtent2D extent = system->swapchain().extent();
-    VkRenderPass render_pass = m_renderer->renderPass();
+    vk::Extent2D extent = system->swapchain().extent();
+    const vk::raii::PipelineLayout &layout = m_renderer->pipelineLayout();
+    vk::SurfaceFormatKHR swapchain_format = system->swapchain().format();
+    vk::Format depth_format = system->depthBuffer().format();
 
     vk::ShaderModuleCreateInfo sm_ci{
         .codeSize = TERRAIN_SHADER_BYTECODE.size() * sizeof(std::remove_reference<decltype(TERRAIN_SHADER_BYTECODE)>::type::value_type),
@@ -142,156 +103,97 @@ void gfx::TerrainPipeline::initPipeline() {
     };
     vk::raii::ShaderModule shader = device.createShaderModule(sm_ci);
 
-    VkPipelineShaderStageCreateInfo ss_ci[2];
-    ss_ci[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    ss_ci[0].pNext = nullptr;
-    ss_ci[0].flags = 0;
-    ss_ci[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-    ss_ci[0].module = *shader;
-    ss_ci[0].pName = "vs_main";
-    ss_ci[0].pSpecializationInfo = nullptr;
+    std::array<vk::PipelineShaderStageCreateInfo, 2> shader_stages{
+        vk::PipelineShaderStageCreateInfo{
+            .stage = vk::ShaderStageFlagBits::eVertex,
+            .module = *shader,
+            .pName = "vs_main",
+        },
+        vk::PipelineShaderStageCreateInfo{
+            .stage = vk::ShaderStageFlagBits::eFragment,
+            .module = *shader,
+            .pName = "fs_main",
+        },
+    };
 
-    ss_ci[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    ss_ci[1].pNext = nullptr;
-    ss_ci[1].flags = 0;
-    ss_ci[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    ss_ci[1].module = *shader;
-    ss_ci[1].pName = "fs_main";
-    ss_ci[1].pSpecializationInfo = nullptr;
+    vk::VertexInputBindingDescription bind_desc = TerrainVertex::bindingDescription();
+    std::array<vk::VertexInputAttributeDescription, TerrainVertex::NUM_ATTRIBUTES> attr_desc = TerrainVertex::attributeDescription();
+    vk::PipelineVertexInputStateCreateInfo vertex_input_ci = vk::PipelineVertexInputStateCreateInfo{}
+        .setVertexBindingDescriptions(bind_desc)
+        .setVertexAttributeDescriptions(attr_desc);
+    
+    vk::PipelineInputAssemblyStateCreateInfo input_assembly_ci{
+        .topology = vk::PrimitiveTopology::eTriangleList,
+    };
+    
+    vk::PipelineViewportStateCreateInfo viewport_ci{
+        .viewportCount = 1,
+        .scissorCount = 1,
+    };
 
-    VkVertexInputBindingDescription bind_desc = TerrainVertex::bindingDescription();
-    std::array<VkVertexInputAttributeDescription, TerrainVertex::NUM_ATTRIBUTES> attr_desc = TerrainVertex::attributeDescription();
+    vk::PipelineRasterizationStateCreateInfo raster_ci{
+        .depthClampEnable = vk::False,
+        .rasterizerDiscardEnable = vk::False,
+        .polygonMode = vk::PolygonMode::eFill,
+        .cullMode = vk::CullModeFlagBits::eBack,
+        .frontFace = vk::FrontFace::eCounterClockwise,
+        .depthBiasEnable = vk::False,
+        .lineWidth = 1.0f,
+    };
 
-    VkPipelineVertexInputStateCreateInfo vert_in_ci;
-    vert_in_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vert_in_ci.pNext = nullptr;
-    vert_in_ci.flags = 0;
-    vert_in_ci.vertexBindingDescriptionCount = 1;
-    vert_in_ci.pVertexBindingDescriptions = &bind_desc;
-    vert_in_ci.vertexAttributeDescriptionCount = static_cast<uint32_t>(attr_desc.size());
-    vert_in_ci.pVertexAttributeDescriptions = attr_desc.data();
+    vk::PipelineMultisampleStateCreateInfo multisample_state_ci{
+        .rasterizationSamples = vk::SampleCountFlagBits::e1,
+        .sampleShadingEnable = vk::False,
+    };
 
-    VkPipelineInputAssemblyStateCreateInfo input_asm_ci;
-    input_asm_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    input_asm_ci.pNext = nullptr;
-    input_asm_ci.flags = 0;
-    input_asm_ci.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    input_asm_ci.primitiveRestartEnable = VK_FALSE;
+    vk::PipelineDepthStencilStateCreateInfo depth_ci{
+        .depthTestEnable = vk::True,
+        .depthWriteEnable = vk::True,
+        .depthCompareOp = vk::CompareOp::eLess,
+        .depthBoundsTestEnable = vk::False,
+        .stencilTestEnable = vk::False,
+    };
 
-    VkViewport viewport;
-    viewport.x = 0.0;
-    viewport.y = 0.0;
-    viewport.width = static_cast<float>(extent.width);
-    viewport.height = static_cast<float>(extent.height);
-    viewport.minDepth = 0.0;
-    viewport.maxDepth = 1.0;
+    vk::PipelineColorBlendAttachmentState blend_attachment{
+        .blendEnable = vk::False,
+        .colorWriteMask = vk::ColorComponentFlagBits::eR | 
+            vk::ColorComponentFlagBits::eG | 
+            vk::ColorComponentFlagBits::eB | 
+            vk::ColorComponentFlagBits::eA,
+    };
 
-    VkRect2D scissor;
-    scissor.offset = { 0, 0 };
-    scissor.extent = extent;
+    vk::PipelineColorBlendStateCreateInfo color_blend_ci = vk::PipelineColorBlendStateCreateInfo{
+        .logicOpEnable = vk::False,
+        .logicOp = vk::LogicOp::eCopy,
+    }.setAttachments(blend_attachment);
 
-    VkPipelineViewportStateCreateInfo vp_ci;
-    vp_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    vp_ci.pNext = nullptr;
-    vp_ci.flags = 0;
-    vp_ci.viewportCount = 1;
-    vp_ci.pViewports = &viewport;
-    vp_ci.scissorCount = 1;
-    vp_ci.pScissors = &scissor;
+    std::array<vk::DynamicState, 2> dynamic_states{
+        vk::DynamicState::eViewport,
+        vk::DynamicState::eScissor,
+    };
+    vk::PipelineDynamicStateCreateInfo dynamic_state_ci = vk::PipelineDynamicStateCreateInfo{}
+        .setDynamicStates(dynamic_states);
 
-    VkPipelineRasterizationStateCreateInfo raster_ci;
-    raster_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    raster_ci.pNext = nullptr;
-    raster_ci.flags = 0;
-    raster_ci.depthClampEnable = VK_FALSE;
-    raster_ci.rasterizerDiscardEnable = VK_FALSE;
-    raster_ci.polygonMode = VK_POLYGON_MODE_FILL;
-    raster_ci.cullMode = VK_CULL_MODE_BACK_BIT;
-    raster_ci.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    raster_ci.depthBiasEnable = VK_FALSE;
-    raster_ci.depthBiasConstantFactor = 0.0;
-    raster_ci.depthBiasClamp = 0.0;
-    raster_ci.depthBiasSlopeFactor = 0.0;
-    raster_ci.lineWidth = 1.0;
-
-    VkPipelineMultisampleStateCreateInfo msamp_ci;
-    msamp_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    msamp_ci.pNext = nullptr;
-    msamp_ci.flags = 0;
-    msamp_ci.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    msamp_ci.sampleShadingEnable = VK_FALSE;
-    msamp_ci.minSampleShading = 0.0;
-    msamp_ci.pSampleMask = nullptr;
-    msamp_ci.alphaToCoverageEnable = VK_FALSE;
-    msamp_ci.alphaToOneEnable = VK_FALSE;
-
-    VkPipelineDepthStencilStateCreateInfo depth_ci;
-    depth_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depth_ci.pNext = nullptr;
-    depth_ci.flags = 0;
-    depth_ci.depthTestEnable = VK_TRUE;
-    depth_ci.depthWriteEnable = VK_TRUE;
-    depth_ci.depthCompareOp = VK_COMPARE_OP_LESS;
-    depth_ci.depthBoundsTestEnable = VK_FALSE;
-    depth_ci.stencilTestEnable = VK_FALSE;
-    depth_ci.front = {};
-    depth_ci.back = {};
-    depth_ci.minDepthBounds = 0.0;
-    depth_ci.maxDepthBounds = 1.0;
-
-    VkPipelineColorBlendAttachmentState blender;
-    blender.blendEnable = VK_FALSE;
-    blender.srcColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-    blender.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-    blender.colorBlendOp = VK_BLEND_OP_ADD;
-    blender.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-    blender.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-    blender.alphaBlendOp = VK_BLEND_OP_ADD;
-    blender.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-
-    VkPipelineColorBlendStateCreateInfo blend_ci;
-    blend_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    blend_ci.pNext = nullptr;
-    blend_ci.flags = 0;
-    blend_ci.logicOpEnable = VK_FALSE;
-    blend_ci.logicOp = VK_LOGIC_OP_COPY;
-    blend_ci.attachmentCount = 1;
-    blend_ci.pAttachments = &blender;
-    blend_ci.blendConstants[0] = 0.0;
-    blend_ci.blendConstants[1] = 0.0;
-    blend_ci.blendConstants[2] = 0.0;
-    blend_ci.blendConstants[3] = 0.0;
-
-    // VkPipelineDynamicStateCreateInfo dyn_state_ci;
-    // dyn_state_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    // dyn_state_ci.pNext = nullptr;
-    // dyn_state_ci.flags = 0;
-
-    VkGraphicsPipelineCreateInfo pipeline_ci;
-    pipeline_ci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipeline_ci.pNext = nullptr;
-    pipeline_ci.flags = 0;
-    pipeline_ci.stageCount = 2;
-    pipeline_ci.pStages = ss_ci;
-    pipeline_ci.pVertexInputState = &vert_in_ci;
-    pipeline_ci.pInputAssemblyState = &input_asm_ci;
-    pipeline_ci.pTessellationState = nullptr;
-    pipeline_ci.pViewportState = &vp_ci;
-    pipeline_ci.pRasterizationState = &raster_ci;
-    pipeline_ci.pMultisampleState = &msamp_ci;
-    pipeline_ci.pDepthStencilState = &depth_ci;
-    pipeline_ci.pColorBlendState = &blend_ci;
-    pipeline_ci.pDynamicState = nullptr;
-    pipeline_ci.layout = m_renderer->pipelineLayout();
-    pipeline_ci.renderPass = render_pass;
-    pipeline_ci.subpass = 0;
-    pipeline_ci.basePipelineHandle = VK_NULL_HANDLE;
-    pipeline_ci.basePipelineIndex = -1;
-
-    VkResult rslt = vkCreateGraphicsPipelines(*device, VK_NULL_HANDLE, 1, &pipeline_ci, nullptr, &m_pipeline);
-    if (rslt != VK_SUCCESS) {
-        std::stringstream msg;
-        msg << "Unable to create terrain renderer pipeline. Error code: " << rslt;
-        throw std::runtime_error(msg.str());
-    }
+    vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipeline_ci{
+        vk::GraphicsPipelineCreateInfo{
+            .pVertexInputState = &vertex_input_ci,
+            .pInputAssemblyState = &input_assembly_ci,
+            .pViewportState = &viewport_ci,
+            .pRasterizationState = &raster_ci,
+            .pMultisampleState = &multisample_state_ci,
+            .pDepthStencilState = &depth_ci,
+            .pColorBlendState = &color_blend_ci,
+            .pDynamicState = &dynamic_state_ci,
+            .layout = *layout,
+            .renderPass = nullptr,
+        },
+        vk::PipelineRenderingCreateInfo{
+            .depthAttachmentFormat = depth_format,
+        },
+    };
+    pipeline_ci.get<vk::GraphicsPipelineCreateInfo>().setStages(shader_stages);
+    pipeline_ci.get<vk::PipelineRenderingCreateInfo>()
+        .setColorAttachmentFormats(swapchain_format.format);
+    
+    m_pipeline = device.createGraphicsPipeline(nullptr, pipeline_ci.get<vk::GraphicsPipelineCreateInfo>());
 }

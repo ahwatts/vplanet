@@ -19,30 +19,28 @@ namespace gfx {
 
     class TerrainPipeline : public Pipeline {
     public:
+        TerrainPipeline();
         TerrainPipeline(Renderer *renderer);
+        TerrainPipeline(const TerrainPipeline &other) = delete;
+        TerrainPipeline(TerrainPipeline &&other) = default;
+
         virtual ~TerrainPipeline();
 
-        void init();
-        void dispose();
+        TerrainPipeline &operator=(const TerrainPipeline &other) = delete;
+        TerrainPipeline &operator=(TerrainPipeline &&other) = default;
 
         void setGeometry(const std::vector<TerrainVertex> &verts, const std::vector<uint32_t> &elems);
         void setTransform(const glm::mat4x4 &xform);
         void writeTransform(uint32_t buffer_index);
 
-        void recordCommands(VkCommandBuffer cmd_buf, uint32_t fb_index);
+        void recordCommands(const vk::raii::CommandBuffer &cmd_buf, uint32_t frame_index);
 
     private:
-        void initShaderModules();
-        void cleanupShaderModules();
-
         virtual void initPipeline();
 
-        void cleanupGeometryBuffers();
-
-        ModelUniformSet m_uniforms;
-        // VkShaderModule m_vertex_shader, m_fragment_shader;
+        ModelUniformSet m_uniform_set;
         uint32_t m_num_indices;
-        VkBuffer m_vertex_buffer, m_index_buffer;
+        vk::raii::Buffer m_vertex_buffer, m_index_buffer;
         VmaAllocation m_vertex_buffer_allocation, m_index_buffer_allocation;
     };
 }

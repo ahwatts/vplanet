@@ -17,7 +17,7 @@ const std::vector<unsigned char> &OCEAN_SHADER_BYTECODE = LOAD_RESOURCE(ocean_sl
 
 gfx::OceanPipeline::OceanPipeline()
 : Pipeline(nullptr),
-  m_uniforms{},
+  m_uniform_set{},
   m_num_indices{0},
   m_vertex_buffer{nullptr},
   m_index_buffer{nullptr},
@@ -25,15 +25,11 @@ gfx::OceanPipeline::OceanPipeline()
   m_index_buffer_allocation{nullptr}
 {}
 
-gfx::OceanPipeline::OceanPipeline(Renderer *renderer)
-: Pipeline(renderer),
-  m_uniforms{&renderer->system()->uniforms()},
-  m_num_indices{0},
-  m_vertex_buffer{nullptr},
-  m_index_buffer{nullptr},
-  m_vertex_buffer_allocation{nullptr},
-  m_index_buffer_allocation{nullptr}
-{}
+gfx::OceanPipeline::OceanPipeline(Renderer *renderer) : OceanPipeline() {
+    m_renderer = renderer;
+    m_uniform_set = ModelUniformSet(&m_renderer->system()->uniforms());
+    initPipeline();
+}
 
 gfx::OceanPipeline::~OceanPipeline() {
     if (m_vertex_buffer_allocation != nullptr) {
@@ -49,7 +45,7 @@ gfx::OceanPipeline::~OceanPipeline() {
 
 void gfx::OceanPipeline::recordCommands(const vk::raii::CommandBuffer &cmd_buf, uint32_t frame_index) {
     const vk::raii::PipelineLayout &layout = m_renderer->pipelineLayout();
-    const std::vector<vk::raii::DescriptorSet> &model_uniforms = m_uniforms.descriptorSets();
+    const std::vector<vk::raii::DescriptorSet> &model_uniforms = m_uniform_set.descriptorSets();
 
     cmd_buf.bindPipeline(vk::PipelineBindPoint::eGraphics, *m_pipeline);
     cmd_buf.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *layout, 1, *model_uniforms[frame_index], nullptr);
@@ -84,18 +80,14 @@ void gfx::OceanPipeline::setGeometry(const std::vector<OceanVertex> &verts, cons
 }
 
 void gfx::OceanPipeline::setTransform(const glm::mat4x4 &xform) {
-    m_uniforms.setTransform(xform);
+    m_uniform_set.setTransform(xform);
 }
 
 void gfx::OceanPipeline::writeTransform(uint32_t buffer_index) {
-    m_uniforms.updateModelBuffer(buffer_index);
+    m_uniform_set.updateModelBuffer(buffer_index);
 }
 
 void gfx::OceanPipeline::initPipeline() {
-    if (m_pipeline != VK_NULL_HANDLE) {
-        return;
-    }
-
     System *system = m_renderer->system();
     const vk::raii::Device &device = system->device();
     vk::Extent2D extent = system->swapchain().extent();

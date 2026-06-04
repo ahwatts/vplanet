@@ -11,28 +11,29 @@
 #include "Noise.h"
 #include "Terrain.h"
 
-VkVertexInputBindingDescription TerrainVertex::bindingDescription() {
-    VkVertexInputBindingDescription desc;
-    desc.binding = 0;
-    desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    desc.stride = sizeof(TerrainVertex);
-    return desc;
+vk::VertexInputBindingDescription TerrainVertex::bindingDescription() {
+    return vk::VertexInputBindingDescription{
+        .binding = 0,
+        .stride = sizeof(TerrainVertex),
+        .inputRate = vk::VertexInputRate::eVertex,
+    };
 }
 
-std::array<VkVertexInputAttributeDescription, TerrainVertex::NUM_ATTRIBUTES> TerrainVertex::attributeDescription() {
-    std::array<VkVertexInputAttributeDescription, TerrainVertex::NUM_ATTRIBUTES> descs;
-
-    descs[0].binding = 0;
-    descs[0].location = 0;
-    descs[0].offset = offsetof(TerrainVertex, position);
-    descs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-
-    descs[1].binding = 0;
-    descs[1].location = 1;
-    descs[1].offset = offsetof(TerrainVertex, normal);
-    descs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-
-    return descs;
+std::array<vk::VertexInputAttributeDescription, TerrainVertex::NUM_ATTRIBUTES> TerrainVertex::attributeDescription() {
+    return std::array<vk::VertexInputAttributeDescription, TerrainVertex::NUM_ATTRIBUTES>{
+        vk::VertexInputAttributeDescription{
+            .location = 0,
+            .binding = 0,
+            .format = vk::Format::eR32G32B32Sfloat,
+            .offset = offsetof(TerrainVertex, position),
+        },
+        vk::VertexInputAttributeDescription{
+            .location = 1,
+            .binding = 0,
+            .format = vk::Format::eR32G32B32Sfloat,
+            .offset = offsetof(TerrainVertex, normal),
+        },
+    };
 }
 
 Terrain::Terrain(float radius, int refinements, const NoiseFunction &noise)

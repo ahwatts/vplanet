@@ -14,15 +14,15 @@
 gfx::Uniforms::Uniforms()
 : m_system{nullptr},
   m_descriptor_pool{nullptr},
-  m_descriptor_set_layouts{},
+  m_scene_descriptor_set_layout{nullptr},
+  m_model_descriptor_set_layout{nullptr},
   m_num_frames{0}
 {}
 
 gfx::Uniforms::Uniforms(System *system, uint32_t num_frames) : Uniforms() {
     m_system = system;
     m_num_frames = num_frames;
-    SceneUniformSet::initDescriptorSetLayout(m_system, this);
-    ModelUniformSet::initDescriptorSetLayout(m_system, this);
+    initDescriptorSetLayouts();
     initDescriptorPool();
 }
 
@@ -30,12 +30,7 @@ gfx::Uniforms::Uniforms(System *system, uint32_t num_frames) : Uniforms() {
 //     *this = std::move(other);
 // }
 
-gfx::Uniforms::~Uniforms() {
-    // Since the actual layouts are about to be destructed, make sure the global
-    // pointers to them are nullified.
-    SceneUniformSet::c_descriptor_set_layout = nullptr;
-    ModelUniformSet::c_descriptor_set_layout = nullptr;
-}
+// gfx::Uniforms::~Uniforms() {}
 
 // gfx::Uniforms &gfx::Uniforms::operator=(Uniforms &&other) {
 //     m_system = other.m_system;
@@ -57,9 +52,13 @@ uint32_t gfx::Uniforms::numFrames() const {
     return m_num_frames;
 }
 
-vk::raii::DescriptorSetLayout *gfx::Uniforms::registerDescriptorSetLayout(vk::raii::DescriptorSetLayout &&layout) {
-    m_descriptor_set_layouts.emplace_back(std::move(layout));
-    return &m_descriptor_set_layouts.back();
+const vk::raii::DescriptorSetLayout &gfx::Uniforms::sceneDescriptorSetLayout() const {
+    return m_scene_descriptor_set_layout;
+}
+
+const vk::raii::DescriptorSetLayout &gfx::Uniforms::modelDescriptorSetLayout() const
+{
+    return m_model_descriptor_set_layout;
 }
 
 void gfx::Uniforms::initDescriptorPool() {
@@ -76,6 +75,11 @@ void gfx::Uniforms::initDescriptorPool() {
     m_descriptor_pool = device.createDescriptorPool(dp_ci);
 }
 
+void gfx::Uniforms::initDescriptorSetLayouts() {
+    m_scene_descriptor_set_layout = SceneUniformSet::createDescriptorSetLayout(m_system);
+    m_model_descriptor_set_layout = ModelUniformSet::createDescriptorSetLayout(m_system);
+}
+
 gfx::UniformSet::UniformSet()
 : m_uniforms{nullptr},
   m_descriptor_sets{}
@@ -85,19 +89,24 @@ gfx::UniformSet::UniformSet(Uniforms *uniforms) : UniformSet() {
     m_uniforms = uniforms;
 }
 
-gfx::UniformSet::UniformSet(UniformSet &&other) : UniformSet() {
-    *this = std::move(other);
-}
+// gfx::UniformSet::UniformSet(UniformSet &&other) : UniformSet() {
+//     *this = std::move(other);
+// }
 
 gfx::UniformSet::~UniformSet() {}
 
-gfx::UniformSet &gfx::UniformSet::operator=(UniformSet &&other) {
-    m_uniforms = other.m_uniforms;
-    std::swap(m_descriptor_sets, other.m_descriptor_sets);
-    return *this;
+// gfx::UniformSet &gfx::UniformSet::operator=(UniformSet &&other) {
+//     m_uniforms = other.m_uniforms;
+//     std::swap(m_descriptor_sets, other.m_descriptor_sets);
+//     return *this;
+// }
+
+gfx::Uniforms *gfx::UniformSet::uniforms() {
+    return m_uniforms;
 }
 
-const std::vector<vk::raii::DescriptorSet> &gfx::UniformSet::descriptorSets() const {
+const std::vector<vk::raii::DescriptorSet> &gfx::UniformSet::descriptorSets() const
+{
     return m_descriptor_sets;
 }
 
@@ -131,11 +140,11 @@ gfx::SceneUniformSet::SceneUniformSet(Uniforms *uniforms)
     initUniformBuffers();
 }
 
-gfx::SceneUniformSet::SceneUniformSet(SceneUniformSet &&other)
-: UniformSet(std::move(other))
-{
-    *this = std::move(other);
-}
+// gfx::SceneUniformSet::SceneUniformSet(SceneUniformSet &&other)
+// : UniformSet(std::move(other))
+// {
+//     *this = std::move(other);
+// }
 
 gfx::SceneUniformSet::~SceneUniformSet() {
     for (auto &alloc : m_view_projection_buffer_allocations) {
@@ -147,26 +156,20 @@ gfx::SceneUniformSet::~SceneUniformSet() {
     }
 }
 
-gfx::SceneUniformSet &gfx::SceneUniformSet::operator=(SceneUniformSet &&other) {
-    m_view_projection = other.m_view_projection;
-    for (int i = 0; i < MAX_LIGHTS; ++i) {
-        m_lights[i].enabled = other.m_lights[i].enabled;
-        m_lights[i].direction = other.m_lights[i].direction;
-    }
-    std::swap(m_view_projection_buffers, other.m_view_projection_buffers);
-    std::swap(m_view_projection_buffer_allocations, other.m_view_projection_buffer_allocations);
-    std::swap(m_light_list_buffers, other.m_light_list_buffers);
-    std::swap(m_light_list_buffer_allocations, other.m_light_list_buffer_allocations);
-    return *this;
-}
+// gfx::SceneUniformSet &gfx::SceneUniformSet::operator=(SceneUniformSet &&other) {
+//     m_view_projection = other.m_view_projection;
+//     for (int i = 0; i < MAX_LIGHTS; ++i) {
+//         m_lights[i].enabled = other.m_lights[i].enabled;
+//         m_lights[i].direction = other.m_lights[i].direction;
+//     }
+//     std::swap(m_view_projection_buffers, other.m_view_projection_buffers);
+//     std::swap(m_view_projection_buffer_allocations, other.m_view_projection_buffer_allocations);
+//     std::swap(m_light_list_buffers, other.m_light_list_buffers);
+//     std::swap(m_light_list_buffer_allocations, other.m_light_list_buffer_allocations);
+//     return *this;
+// }
 
-vk::raii::DescriptorSetLayout *gfx::SceneUniformSet::c_descriptor_set_layout = nullptr;
-
-void gfx::SceneUniformSet::initDescriptorSetLayout(System *gfx, Uniforms *owner) {
-    if (c_descriptor_set_layout != nullptr) {
-        return;
-    }
-
+vk::raii::DescriptorSetLayout gfx::SceneUniformSet::createDescriptorSetLayout(System *gfx) {
     const vk::raii::Device &device = gfx->device();
 
     std::array<vk::DescriptorSetLayoutBinding, 2> bindings{
@@ -187,12 +190,11 @@ void gfx::SceneUniformSet::initDescriptorSetLayout(System *gfx, Uniforms *owner)
     vk::DescriptorSetLayoutCreateInfo dsl_ci = vk::DescriptorSetLayoutCreateInfo{}
         .setBindings(bindings);
 
-    vk::raii::DescriptorSetLayout dsl = device.createDescriptorSetLayout(dsl_ci);
-    c_descriptor_set_layout = owner->registerDescriptorSetLayout(std::move(dsl));
+    return device.createDescriptorSetLayout(dsl_ci);
 }
 
-const vk::raii::DescriptorSetLayout &gfx::SceneUniformSet::descriptorSetLayout() {
-    return *c_descriptor_set_layout;
+const vk::raii::DescriptorSetLayout &gfx::SceneUniformSet::descriptorSetLayout() const {
+    return m_uniforms->sceneDescriptorSetLayout();
 }
 
 void gfx::SceneUniformSet::setTransforms(const ViewProjectionTransform &xform) {
@@ -348,8 +350,6 @@ void gfx::SceneUniformSet::initDescriptorSets() {
     device.updateDescriptorSets(writes, {});
 }
 
-vk::raii::DescriptorSetLayout *gfx::ModelUniformSet::c_descriptor_set_layout = nullptr;
-
 gfx::ModelUniformSet::ModelUniformSet()
 : UniformSet(),
   m_model_transform{},
@@ -366,11 +366,11 @@ gfx::ModelUniformSet::ModelUniformSet(Uniforms *uniforms)
     initUniformBuffers();
 }
 
-gfx::ModelUniformSet::ModelUniformSet(ModelUniformSet &&other)
-: UniformSet(std::move(other))
-{
-    *this = std::move(other);
-}
+// gfx::ModelUniformSet::ModelUniformSet(ModelUniformSet &&other)
+// : UniformSet(std::move(other))
+// {
+//     *this = std::move(other);
+// }
 
 gfx::ModelUniformSet::~ModelUniformSet() {
     for (auto &alloc : m_model_buffer_allocations) {
@@ -378,18 +378,14 @@ gfx::ModelUniformSet::~ModelUniformSet() {
     }
 }
 
-gfx::ModelUniformSet &gfx::ModelUniformSet::operator=(ModelUniformSet &&other) {
-    m_model_transform = other.m_model_transform;
-    std::swap(m_model_buffers, other.m_model_buffers);
-    std::swap(m_model_buffer_allocations, other.m_model_buffer_allocations);
-    return *this;
-}
+// gfx::ModelUniformSet &gfx::ModelUniformSet::operator=(ModelUniformSet &&other) {
+//     m_model_transform = other.m_model_transform;
+//     std::swap(m_model_buffers, other.m_model_buffers);
+//     std::swap(m_model_buffer_allocations, other.m_model_buffer_allocations);
+//     return *this;
+// }
 
-void gfx::ModelUniformSet::initDescriptorSetLayout(System *gfx, Uniforms *owner) {
-    if (c_descriptor_set_layout != nullptr) {
-        return;
-    }
-
+vk::raii::DescriptorSetLayout gfx::ModelUniformSet::createDescriptorSetLayout(System *gfx) {
     const vk::raii::Device &device = gfx->device();
 
     vk::DescriptorSetLayoutBinding binding{
@@ -402,12 +398,11 @@ void gfx::ModelUniformSet::initDescriptorSetLayout(System *gfx, Uniforms *owner)
     vk::DescriptorSetLayoutCreateInfo dsl_ci = vk::DescriptorSetLayoutCreateInfo{}
         .setBindings(binding);
 
-    vk::raii::DescriptorSetLayout layout = device.createDescriptorSetLayout(dsl_ci);
-    c_descriptor_set_layout = owner->registerDescriptorSetLayout(std::move(layout));
+    return device.createDescriptorSetLayout(dsl_ci);
 }
 
-const vk::raii::DescriptorSetLayout &gfx::ModelUniformSet::descriptorSetLayout() {
-    return *c_descriptor_set_layout;
+const vk::raii::DescriptorSetLayout &gfx::ModelUniformSet::descriptorSetLayout() const {
+    return m_uniforms->modelDescriptorSetLayout();
 }
 
 void gfx::ModelUniformSet::setTransform(const glm::mat4x4 &model) {

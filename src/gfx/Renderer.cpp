@@ -11,38 +11,20 @@
 gfx::Renderer::Renderer()
 : m_system{nullptr},
   m_pipeline_layout{nullptr},
-  m_uniforms{},
+  m_uniform_set{},
   m_ocean_pipeline{},
-  m_terrain_pipeline{this}
+  m_terrain_pipeline{}
 {}
 
 gfx::Renderer::Renderer(System *system) : Renderer() {
     m_system = system;
+    m_uniform_set = SceneUniformSet(&system->uniforms());
     initPipelineLayout();
-    m_uniforms = SceneUniformSet(&system->uniforms());
     m_ocean_pipeline = OceanPipeline(this);
-    // m_terrain_pipeline = TerrainPipeline(this);
+    m_terrain_pipeline = TerrainPipeline(this);
 }
 
 // gfx::Renderer::~Renderer() {}
-
-// void gfx::Renderer::init() {
-//     initPipelineLayout();
-//     // initRenderPass();
-//     // initFramebuffers();
-//     m_uniforms.init();
-//     m_terrain_pipeline.init();
-//     m_ocean_pipeline.init();
-// }
-
-// void gfx::Renderer::dispose() {
-//     m_ocean_pipeline.dispose();
-//     m_terrain_pipeline.dispose();
-//     m_uniforms.dispose();
-//     cleanupFramebuffers();
-//     cleanupRenderPass();
-//     cleanupPipelineLayout();
-// }
 
 gfx::System* gfx::Renderer::system() {
     return m_system;
@@ -61,23 +43,23 @@ gfx::OceanPipeline& gfx::Renderer::oceanPipeline() {
 }
 
 void gfx::Renderer::setViewProjectionTransform(const ViewProjectionTransform &xform) {
-    m_uniforms.setTransforms(xform);
+    m_uniform_set.setTransforms(xform);
 }
 
 void gfx::Renderer::writeViewProjectionTransform(uint32_t buffer_index) {
-    m_uniforms.updateViewProjectionBuffer(buffer_index);
+    m_uniform_set.updateViewProjectionBuffer(buffer_index);
 }
 
 void gfx::Renderer::enableLight(uint32_t index, const glm::vec3 &direction) {
-    m_uniforms.enableLight(index, direction);
+    m_uniform_set.enableLight(index, direction);
 }
 
 void gfx::Renderer::disableLight(uint32_t index) {
-    m_uniforms.disableLight(index);
+    m_uniform_set.disableLight(index);
 }
 
 void gfx::Renderer::writeLightList(uint32_t buffer_index) {
-    m_uniforms.updateLightListBuffer(buffer_index);
+    m_uniform_set.updateLightListBuffer(buffer_index);
 }
 
 void gfx::Renderer::recordCommands(const vk::raii::CommandBuffer &cmd_buf, uint32_t image_index, uint32_t frame_index) {
@@ -105,23 +87,24 @@ void gfx::Renderer::recordCommands(const vk::raii::CommandBuffer &cmd_buf, uint3
         .pDepthAttachment = &depth_ai,
     }.setColorAttachments(color_ai);
 
-    const std::vector<vk::raii::DescriptorSet> &scene_uniforms = m_uniforms.descriptorSets();
+    const std::vector<vk::raii::DescriptorSet> &scene_uniforms = m_uniform_set.descriptorSets();
 
     cmd_buf.beginRendering(ri);
     cmd_buf.setViewport(0, vk::Viewport{0.0f, 0.0f, static_cast<float>(swapchain_extent.width), static_cast<float>(swapchain_extent.height)});
     cmd_buf.setScissor(0, vk::Rect2D{vk::Offset2D{0, 0}, swapchain_extent});
     cmd_buf.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *m_pipeline_layout, 0, *scene_uniforms[frame_index], nullptr);
-    m_terrain_pipeline.recordCommands(*cmd_buf, frame_index);
+    m_terrain_pipeline.recordCommands(cmd_buf, frame_index);
     m_ocean_pipeline.recordCommands(cmd_buf, frame_index);
     cmd_buf.endRendering();
 }
 
 void gfx::Renderer::initPipelineLayout() {
     const vk::raii::Device &device = m_system->device();
+    const Uniforms *uniforms = m_uniform_set.uniforms();
 
     std::array<vk::DescriptorSetLayout, 2> layouts{
-        *SceneUniformSet::descriptorSetLayout(),
-        *ModelUniformSet::descriptorSetLayout(),
+        *uniforms->sceneDescriptorSetLayout(),
+        *uniforms->modelDescriptorSetLayout(),
     };
 
     vk::PipelineLayoutCreateInfo pl_ci = vk::PipelineLayoutCreateInfo{}

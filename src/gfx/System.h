@@ -31,6 +31,7 @@ namespace gfx {
         const vk::raii::SurfaceKHR &surface() const;
         uint32_t graphicsQueueFamily() const;
         uint32_t presentQueueFamily() const;
+        uint32_t numFrames() const;
 
         VmaAllocator allocator() const;
 
@@ -42,18 +43,22 @@ namespace gfx {
 
         void setTerrainGeometry(const std::vector<TerrainVertex> &vertices, const std::vector<uint32_t> &indices);
         void setTerrainTransform(const glm::mat4x4 &xform);
-        void writeTerrainTransform(uint32_t buffer_index);
+        void writeTerrainTransform();
+        void writeTerrainTransform(uint32_t frame_index);
 
         void setOceanGeometry(const std::vector<OceanVertex> &vertices, const std::vector<uint32_t> &indices);
         void setOceanTransform(const glm::mat4x4 &xform);
-        void writeOceanTransform(uint32_t buffer_index);
+        void writeOceanTransform();
+        void writeOceanTransform(uint32_t frame_index);
 
         void setViewProjectionTransform(const ViewProjectionTransform &xform);
-        void writeViewProjectionTransform(uint32_t buffer_index);
+        void writeViewProjectionTransform();
+        void writeViewProjectionTransform(uint32_t frame_index);
 
         void enableLight(uint32_t index, const glm::vec3 &direction);
         void disableLight(uint32_t index);
-        void writeLightList(uint32_t buffer_index);
+        void writeLightList();
+        void writeLightList(uint32_t frame_index);
 
         // void recordCommandBuffers();
         uint32_t startFrame();

@@ -46,7 +46,7 @@ namespace gfx {
         System *m_system;
         vk::raii::PipelineLayout m_pipeline_layout;
 
-        SceneUniformSet m_uniforms;
+        SceneUniformSet m_uniform_set;
         OceanPipeline m_ocean_pipeline;
         TerrainPipeline m_terrain_pipeline;
     };

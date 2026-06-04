@@ -13,7 +13,6 @@ gfx::Pipeline::Pipeline()
 
 gfx::Pipeline::Pipeline(Renderer *renderer) : Pipeline() {
     m_renderer = renderer;
-    initPipeline();
 }
 
 gfx::Pipeline::~Pipeline() {}

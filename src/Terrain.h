@@ -16,8 +16,8 @@ struct TerrainVertex {
     glm::vec3 normal;
     static const int NUM_ATTRIBUTES = 2;
 
-    static VkVertexInputBindingDescription bindingDescription();
-    static std::array<VkVertexInputAttributeDescription, NUM_ATTRIBUTES> attributeDescription();
+    static vk::VertexInputBindingDescription bindingDescription();
+    static std::array<vk::VertexInputAttributeDescription, NUM_ATTRIBUTES> attributeDescription();
 };
 
 class Terrain {

@@ -33,7 +33,7 @@ Application::Application(GLFWwindow *window)
         .addControlPoint(1.0, 1.2);
     const Curve curved_noise{octave_noise, spline};
 
-    Terrain terrain{2.0, 5, curved_noise};
+    Terrain terrain{2.0, 0, curved_noise};
     m_gfx.setTerrainGeometry(terrain.vertices(), terrain.elements());
 
     Ocean ocean{1.97f, 5};
@@ -54,13 +54,11 @@ Application::Application(GLFWwindow *window)
     m_gfx.setViewProjectionTransform(vp_xform);
     m_gfx.enableLight(0, { -1.0, -1.0, -1.0 });
 
-    uint32_t num_images = static_cast<uint32_t>(m_gfx.swapchain().images().size());
-    for (uint32_t i = 0; i < num_images; ++i) {
+    uint32_t num_frames = m_gfx.numFrames();
+    for (uint32_t i = 0; i < num_frames; ++i) {
         m_gfx.writeViewProjectionTransform(i);
         m_gfx.writeLightList(i);
     }
-
-    m_gfx.recordCommandBuffers();
 }
 
 Application::~Application() {}
@@ -75,11 +73,11 @@ void Application::run() {
             float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
             model = glm::rotate(glm::mat4x4{1.0}, time * glm::radians(15.0f), glm::vec3{0.0, 1.0, 0.0});
 
-            uint32_t image_index = m_gfx.startFrame();
             m_gfx.setTerrainTransform(model);
             m_gfx.setOceanTransform(model);
-            m_gfx.writeTerrainTransform(image_index);
-            m_gfx.writeOceanTransform(image_index);
+            m_gfx.writeTerrainTransform();
+            m_gfx.writeOceanTransform();
+            uint32_t image_index = m_gfx.startFrame();
             m_gfx.drawFrame(image_index);
             m_gfx.presentFrame(image_index);
             glfwPollEvents();

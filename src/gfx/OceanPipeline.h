@@ -34,8 +34,7 @@ namespace gfx {
     private:
         virtual void initPipeline();
 
-        ModelUniformSet m_uniforms;
-        // VkShaderModule m_vertex_shader, m_fragment_shader;
+        ModelUniformSet m_uniform_set;
         uint32_t m_num_indices;
         vk::raii::Buffer m_vertex_buffer, m_index_buffer;
         VmaAllocation m_vertex_buffer_allocation, m_index_buffer_allocation;
