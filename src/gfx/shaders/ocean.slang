@@ -23,7 +23,12 @@ struct VertexOutput {
     float3 eye_dir;
 }
 
-ConstantBuffer<ViewProjectionTransformation> xforms;
+struct SceneUniforms {
+    ViewProjectionTransformation xforms;
+    LightInfo lights[MAX_LIGHTS];
+}
+
+ConstantBuffer<SceneUniforms> scene_info;
 ConstantBuffer<float4x4> model_xform;
 
 [shader("vertex")]
@@ -43,7 +48,7 @@ VertexOutput vs_main(VertexInput in) {
     float4 wld_eye_pos4 = mul(view_inv, float4(0.0, 0.0, 0.0, 1.0));
     float3 wld_eye_pos = wld_eye_pos4.xyz / wld_eye_pos4.w;
 
-    out.position = mul(xforms.projection, mul(xforms.view, mul(model_xform, float4(in.position, 1.0))));
+    out.position = mul(scene_info.xforms.projection, mul(scene_info.xforms.view, mul(model_xform, float4(in.position, 1.0))));
     out.color = in.color;
     out.normal = normalize(mul(float3x3(model_xform), in.normal));
     out.eye_dir = normalize(wld_eye_pos - wld_vert_pos);
@@ -51,16 +56,14 @@ VertexOutput vs_main(VertexInput in) {
     return out;
 }
 
-ConstantBuffer<LightInfo[MAX_LIGHTS]> lights;
-
 [shader("fragment")]
 float4 fs_main(VertexOutput in) : SV_Target {
     int enabled_lights = 0;
     float3 diffuse_colors[MAX_LIGHTS];
     for (int i = 0; i < MAX_LIGHTS; ++i) {
-        if (lights[i].enabled) {
+        if (scene_info.lights[i].enabled) {
             enabled_lights += 1;
-            diffuse_colors[i] = in.color.rgb * dot(in.normal, -1 * lights[i].direction);
+            diffuse_colors[i] = in.color.rgb * dot(in.normal, -1 * scene_info.lights[i].direction);
         }
     }
 
@@ -68,7 +71,7 @@ float4 fs_main(VertexOutput in) : SV_Target {
 
     float3 diffuse_color = float3(0.0, 0.0, 0.0);
     for (int i = 0; i < MAX_LIGHTS; ++i) {
-        if (lights[i].enabled) {
+        if (scene_info.lights[i].enabled) {
             diffuse_color += (1.0 / enabled_lights) * diffuse_colors[i];
         }
     }
@@ -77,8 +80,8 @@ float4 fs_main(VertexOutput in) : SV_Target {
     float specular_pow = 12.0;
     float3 specular_color = float3(0.0, 0.0, 0.0);
     for (int i = 0; i < MAX_LIGHTS; ++i) {
-        if (lights[i].enabled) {
-            float3 reflected = normalize(reflect(lights[i].direction, in.normal));
+        if (scene_info.lights[i].enabled) {
+            float3 reflected = normalize(reflect(scene_info.lights[i].direction, in.normal));
             float specular_cos = dot(reflected, in.eye_dir);
             if (specular_cos > 0) {
                 float specular = pow(specular_cos, specular_pow);

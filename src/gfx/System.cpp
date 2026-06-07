@@ -4,7 +4,7 @@
 #include <cassert>
 #include <format>
 #include <iostream>
-#include <sstream>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -51,11 +51,11 @@ gfx::System::System(GLFWwindow *window, bool debug)
   m_present_complete_semaphores{},
   m_draw_fences{},
   m_allocator{VK_NULL_HANDLE},
-  m_commands{},
-  m_swapchain{},
-  m_depth_buffer{},
-  m_renderer{},
-  m_uniforms{}
+  m_commands{nullptr},
+  m_swapchain{nullptr},
+  m_depth_buffer{nullptr},
+  m_renderer{nullptr},
+  m_uniforms{nullptr}
 {
     initInstance();
 
@@ -66,17 +66,19 @@ gfx::System::System(GLFWwindow *window, bool debug)
     initSurface();
     initDevice();
     initAllocator();
-    m_swapchain = Swapchain(this);
+    m_swapchain = std::make_unique<Swapchain>(this);
     initSynchronizationObjects();
-    m_commands = Commands(this);
-    m_depth_buffer = DepthBuffer(this);
-    m_uniforms = Uniforms(this, MAX_FRAMES_IN_FLIGHT);
-    m_renderer = Renderer(this);
+    m_commands = std::make_unique<Commands>(this, m_swapchain->imageCount());
+    m_uniforms = std::make_unique<Uniforms>(this, MAX_FRAMES_IN_FLIGHT);
+    m_depth_buffer = std::make_unique<DepthBuffer>(this);
+    m_renderer = std::make_unique<Renderer>(this);
 }
 
 gfx::System::~System() {
-    m_commands.waitGraphicsIdle();
-    m_commands.waitPresentIdle();
+    m_commands->waitGraphicsIdle();
+    m_commands->waitPresentIdle();
+    m_depth_buffer.reset();
+    m_renderer.reset();
     cleanupAllocator();
 }
 
@@ -117,31 +119,31 @@ VmaAllocator gfx::System::allocator() const {
 }
 
 const gfx::Commands& gfx::System::commands() const {
-    return m_commands;
+    return *m_commands;
 }
 
 const gfx::Swapchain& gfx::System::swapchain() const {
-    return m_swapchain;
+    return *m_swapchain;
 }
 
 const gfx::DepthBuffer& gfx::System::depthBuffer() const {
-    return m_depth_buffer;
+    return *m_depth_buffer;
 }
 
 const gfx::Renderer& gfx::System::renderer() const {
-    return m_renderer;
+    return *m_renderer;
 }
 
 gfx::Uniforms& gfx::System::uniforms() {
-    return m_uniforms;
+    return *m_uniforms;
 }
 
 void gfx::System::setTerrainGeometry(const std::vector<TerrainVertex> &verts, const std::vector<uint32_t> &elems) {
-    m_renderer.terrainPipeline().setGeometry(verts, elems);
+    m_renderer->terrainPipeline().setGeometry(verts, elems);
 }
 
 void gfx::System::setTerrainTransform(const glm::mat4x4 &xform) {
-    m_renderer.terrainPipeline().setTransform(xform);
+    m_renderer->terrainPipeline().setTransform(xform);
 }
 
 void gfx::System::writeTerrainTransform() {
@@ -149,15 +151,15 @@ void gfx::System::writeTerrainTransform() {
 }
 
 void gfx::System::writeTerrainTransform(uint32_t frame_index) {
-    m_renderer.terrainPipeline().writeTransform(frame_index);
+    m_renderer->terrainPipeline().writeTransform(frame_index);
 }
 
 void gfx::System::setOceanGeometry(const std::vector<OceanVertex> &verts, const std::vector<uint32_t> &indices) {
-    m_renderer.oceanPipeline().setGeometry(verts, indices);
+    m_renderer->oceanPipeline().setGeometry(verts, indices);
 }
 
 void gfx::System::setOceanTransform(const glm::mat4x4 &xform) {
-    m_renderer.oceanPipeline().setTransform(xform);
+    m_renderer->oceanPipeline().setTransform(xform);
 }
 
 void gfx::System::writeOceanTransform() {
@@ -165,11 +167,11 @@ void gfx::System::writeOceanTransform() {
 }
 
 void gfx::System::writeOceanTransform(uint32_t frame_index) {
-    m_renderer.oceanPipeline().writeTransform(frame_index);
+    m_renderer->oceanPipeline().writeTransform(frame_index);
 }
 
 void gfx::System::setViewProjectionTransform(const ViewProjectionTransform &xform) {
-    m_renderer.setViewProjectionTransform(xform);
+    m_renderer->setViewProjectionTransform(xform);
 }
 
 void gfx::System::writeViewProjectionTransform() {
@@ -177,15 +179,15 @@ void gfx::System::writeViewProjectionTransform() {
 }
 
 void gfx::System::writeViewProjectionTransform(uint32_t frame_index) {
-    m_renderer.writeViewProjectionTransform(frame_index);
+    m_renderer->writeViewProjectionTransform(frame_index);
 }
 
 void gfx::System::enableLight(uint32_t index, const glm::vec3 &direction) {
-    m_renderer.enableLight(index, direction);
+    m_renderer->enableLight(index, direction);
 }
 
 void gfx::System::disableLight(uint32_t index) {
-    m_renderer.disableLight(index);
+    m_renderer->disableLight(index);
 }
 
 void gfx::System::writeLightList() {
@@ -193,7 +195,7 @@ void gfx::System::writeLightList() {
 }
 
 void gfx::System::writeLightList(uint32_t frame_index) {
-    m_renderer.writeLightList(frame_index);
+    m_renderer->writeLightList(frame_index);
 }
 
 // void gfx::System::recordCommandBuffers() {
@@ -219,18 +221,16 @@ uint32_t gfx::System::startFrame() {
         std::cerr << "Failed to wait for draw fence to clear: " << vk::to_string(rslt) << "\n";
     }
 
-    rslt = vk::Result(vkAcquireNextImageKHR(
-        *m_device,
-        *m_swapchain.swapchain(),
-        UINT64_MAX,
-        *present_complete,
-        VK_NULL_HANDLE,
-        &image_index
-    ));
+    std::tie(rslt, image_index) = m_swapchain->swapchain().acquireNextImage(UINT64_MAX, *present_complete, nullptr);
     if (rslt == vk::Result::eErrorOutOfDateKHR) {
         // re-create swapchain?
     } else if (rslt != vk::Result::eSuccess && rslt != vk::Result::eSuboptimalKHR) {
-        throw std::runtime_error("Error acquiring next swapchain image");
+        throw std::runtime_error(
+            std::format(
+                "Error acquiring next swapchain image: {}", 
+                vk::to_string(rslt)
+            )
+        );
     }
 
     m_device.resetFences(*draw_fence);
@@ -240,27 +240,31 @@ uint32_t gfx::System::startFrame() {
 void gfx::System::drawFrame(uint32_t image_index) {
     vk::raii::Semaphore &present_complete = m_present_complete_semaphores[m_frame_index];    
     vk::raii::Semaphore &render_finished = m_render_finished_semaphores[image_index];
-    vk::raii::Fence &draw_fence = m_draw_fences[m_frame_index];
-    const std::vector<vk::raii::CommandBuffer> &draw_commands = m_commands.drawCommands();
+    vk::raii::Fence &draw_fence = m_draw_fences[m_frame_index];    
+    const vk::raii::CommandBuffer &cmd_buf = m_commands->commandBuffer(image_index);
+
+    cmd_buf.begin({});
+    m_renderer->recordCommands(cmd_buf, image_index, m_frame_index);
+    cmd_buf.end();
 
     vk::PipelineStageFlags wait_dst_stage_mask{vk::PipelineStageFlagBits::eColorAttachmentOutput};
     vk::SubmitInfo si = vk::SubmitInfo{.pWaitDstStageMask = &wait_dst_stage_mask}
         .setWaitSemaphores(*present_complete)
-        .setCommandBuffers(*draw_commands[image_index])
+        .setCommandBuffers(*cmd_buf)
         .setSignalSemaphores(*render_finished);
-    m_commands.graphicsQueue().submit(si, *draw_fence);
+    m_commands->graphicsQueue().submit(si, *draw_fence);
 }
 
 void gfx::System::presentFrame(uint32_t image_index) {
     vk::raii::Semaphore &render_finished = m_render_finished_semaphores[image_index];
-    const vk::raii::SwapchainKHR &swapchain = m_swapchain.swapchain();
+    const vk::raii::SwapchainKHR &swapchain = m_swapchain->swapchain();
 
     std::array<VkSemaphore, 1> wait_semaphores{*render_finished};
     vk::PresentInfoKHR pi = vk::PresentInfoKHR{}
         .setWaitSemaphores(*render_finished)
         .setSwapchains(*swapchain)
         .setImageIndices(image_index);
-    vk::Result rslt = m_commands.presentQueue().presentKHR(pi);
+    vk::Result rslt = m_commands->presentQueue().presentKHR(pi);
 
     if (rslt == vk::Result::eSuboptimalKHR || rslt == vk::Result::eErrorOutOfDateKHR) {
         // re-create swap chain?
@@ -272,8 +276,8 @@ void gfx::System::presentFrame(uint32_t image_index) {
 }
 
 void gfx::System::waitIdle() {
-    m_commands.waitGraphicsIdle();
-    m_commands.waitPresentIdle();
+    m_commands->waitGraphicsIdle();
+    m_commands->waitPresentIdle();
 }
 
 uint32_t gfx::System::chooseMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties) const {
@@ -294,8 +298,17 @@ uint32_t gfx::System::chooseMemoryType(uint32_t type_filter, VkMemoryPropertyFla
 std::pair<vk::raii::Buffer, VmaAllocation> gfx::System::createBuffer(
     vk::DeviceSize size, 
     vk::BufferUsageFlags usage,
-    VmaAllocationCreateFlags allocation_flags
+    VmaAllocationCreateFlags allocation_flags,
+    const std::optional<std::string> &name
 ) {
+
+    std::string buffer_name;
+    if (name.has_value()) {
+        buffer_name = std::string{name.value()} + " buffer";
+    } else {
+        buffer_name = "buffer";
+    }
+
     vk::BufferCreateInfo buf_ci{
         .size = size,
         .usage = usage,
@@ -320,12 +333,15 @@ std::pair<vk::raii::Buffer, VmaAllocation> gfx::System::createBuffer(
     if (rslt != VK_SUCCESS) {
         throw std::runtime_error(
             std::format(
-                "Failed to create buffer. Error code: {}",
+                "Failed to create {}. Error code: {}",
+                buffer_name,
                 vk::to_string(vk::Result(rslt))
             )
         );
     }
 
+    std::cerr << "Created " << buffer_name << ": " << buffer << "\n";
+    std::cerr << "Created " << buffer_name << " allocation: " << allocation << "\n";
     return {vk::raii::Buffer(m_device, buffer), allocation};
 }
 
@@ -333,13 +349,15 @@ std::pair<vk::raii::Buffer, VmaAllocation> gfx::System::createBufferWithData(
     const void *data, 
     size_t size, 
     vk::BufferUsageFlags usage,
-    VmaAllocationCreateFlags allocation_flags
+    VmaAllocationCreateFlags allocation_flags,
+    const std::optional<std::string> &name
 ) {
     // Create the staging buffer.
     auto [staging_buffer, staging_allocation] = createBuffer(
         size,
         vk::BufferUsageFlagBits::eTransferSrc,
-        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
+        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+        "staging"
     );
 
     // Copy data to the staging buffer.
@@ -358,7 +376,8 @@ std::pair<vk::raii::Buffer, VmaAllocation> gfx::System::createBufferWithData(
     auto [buffer, allocation] = createBuffer(
         size,
         usage | vk::BufferUsageFlagBits::eTransferDst,
-        allocation_flags
+        allocation_flags,
+        name
     );
 
     // Copy the staging buffer to the real buffer.
@@ -366,6 +385,7 @@ std::pair<vk::raii::Buffer, VmaAllocation> gfx::System::createBufferWithData(
 
     // Free the staging buffer allocation. (The staging buffer will be freed by
     // RAII)
+    std::cerr << "Freeing staging buffer allocation " << staging_allocation << "\n";
     vmaFreeMemory(m_allocator, staging_allocation);
 
     return {std::move(buffer), allocation};
@@ -378,9 +398,9 @@ void gfx::System::copyBuffer(const vk::raii::Buffer &dst, const vk::raii::Buffer
         .size = size,
     };
 
-    vk::raii::CommandBuffer cb = m_commands.beginOneShot();
+    vk::raii::CommandBuffer cb = m_commands->beginOneShot();
     cb.copyBuffer(*src, *dst, region);
-    m_commands.endOneShot(std::move(cb));
+    m_commands->endOneShot(std::move(cb));
 }
 
 void gfx::System::initInstance() {
@@ -421,6 +441,7 @@ void gfx::System::initInstance() {
         .setPEnabledLayerNames(required_layers);
     
     m_instance = m_context.createInstance(inst_ci);
+    std::cerr << "Created instance: " << *m_instance << "\n";
 }
 
 void gfx::System::initDebugCallback() {
@@ -441,6 +462,7 @@ void gfx::System::initDebugCallback() {
     };
 
     m_debug_messenger = m_instance.createDebugUtilsMessengerEXT(dum_ci);
+    std::cerr << "Created debug messenger: " << *m_debug_messenger << "\n";
 }
 
 VKAPI_ATTR vk::Bool32 VKAPI_CALL gfx::System::debugCallback(
@@ -558,12 +580,16 @@ void gfx::System::initSurface() {
     VkSurfaceKHR surface{VK_NULL_HANDLE};
     VkResult rslt = glfwCreateWindowSurface(*m_instance, m_window, nullptr, &surface);
     if (rslt != VK_SUCCESS) {
-        std::stringstream msg;
-        msg << "Unable to create window surface. Error code: " << rslt;
-        throw std::runtime_error{msg.str()};
+        throw std::runtime_error(
+            std::format(
+                "Unable to create window surface. Error code: {}",
+                vk::to_string(vk::Result(rslt))
+            )
+        );
     }
 
     m_surface = vk::raii::SurfaceKHR(m_instance, surface);
+    std::cerr << "Created surface: " << *m_surface << "\n";
 }
 
 void gfx::System::initDevice() {
@@ -626,16 +652,21 @@ void gfx::System::initDevice() {
         .setQueueCreateInfos(queue_cis);
 
     m_device = m_physical_device.createDevice(dev_ci);
+    std::cerr << "Created device: " << *m_device << "\n";
 }
 
 void gfx::System::initSynchronizationObjects() {
-    for (int i = 0; i < m_swapchain.imageCount(); ++i) {
+    for (int i = 0; i < m_swapchain->imageCount(); ++i) {
         m_render_finished_semaphores.emplace_back(m_device, vk::SemaphoreCreateInfo{});
+        std::cerr << "Created render finished semaphore for image " << i << ": " << *m_render_finished_semaphores.back() << "\n";
     }
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
         m_present_complete_semaphores.emplace_back(m_device, vk::SemaphoreCreateInfo{});
+        std::cerr << "Created present complete semaphore for frame " << i << ": " << *m_present_complete_semaphores.back() << "\n";
+        
         m_draw_fences.emplace_back(m_device, vk::FenceCreateInfo{.flags = vk::FenceCreateFlagBits::eSignaled});
+        std::cerr << "Created draw fence for frame " << i << ": " << *m_draw_fences.back() << "\n";
     }
 }
 
@@ -665,6 +696,7 @@ void gfx::System::initAllocator() {
                 )
             );
         }
+        std::cerr << "Created allocator: " << m_allocator << "\n";
     }
 }
 

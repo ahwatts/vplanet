@@ -58,13 +58,14 @@ void gfx::TerrainPipeline::setGeometry(const std::vector<TerrainVertex> &verts, 
 
     std::tie(m_vertex_buffer, m_vertex_buffer_allocation) = gfx->createBufferWithData(
         verts.data(), verts.size() * sizeof(TerrainVertex),
-        vk::BufferUsageFlagBits::eVertexBuffer,
-        0
+        vk::BufferUsageFlagBits::eVertexBuffer, 0,
+        "terrain vertex"
     );
 
     std::tie(m_index_buffer, m_index_buffer_allocation) = gfx->createBufferWithData(
         indices.data(), indices.size() * sizeof(uint32_t),
-        vk::BufferUsageFlagBits::eIndexBuffer, 0
+        vk::BufferUsageFlagBits::eIndexBuffer, 0,
+        "terrain index"
     );
 
     m_num_indices = static_cast<uint32_t>(indices.size());

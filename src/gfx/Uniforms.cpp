@@ -1,7 +1,7 @@
 // -*- mode: c++; c-basic-offset: 4; encoding: utf-8; -*-
 
 #include <cstring>
-#include <sstream>
+#include <iostream>
 #include <vector>
 
 #include "../glm.h"
@@ -26,20 +26,6 @@ gfx::Uniforms::Uniforms(System *system, uint32_t num_frames) : Uniforms() {
     initDescriptorPool();
 }
 
-// gfx::Uniforms::Uniforms(Uniforms &&other) : Uniforms() {
-//     *this = std::move(other);
-// }
-
-// gfx::Uniforms::~Uniforms() {}
-
-// gfx::Uniforms &gfx::Uniforms::operator=(Uniforms &&other) {
-//     m_system = other.m_system;
-//     m_num_frames = other.m_num_frames;
-//     std::swap(m_descriptor_pool, other.m_descriptor_pool);
-//     std::swap(m_descriptor_set_layouts, other.m_descriptor_set_layouts);
-//     return *this;
-// }
-
 gfx::System* gfx::Uniforms::system() {
     return m_system;
 }
@@ -63,21 +49,25 @@ const vk::raii::DescriptorSetLayout &gfx::Uniforms::modelDescriptorSetLayout() c
 
 void gfx::Uniforms::initDescriptorPool() {
     const vk::raii::Device &device = m_system->device();
-    
+
     vk::DescriptorPoolSize pool_size{
         .type = vk::DescriptorType::eUniformBuffer,
-        .descriptorCount = m_num_frames,
+        .descriptorCount = 2 * m_num_frames,
     };
     vk::DescriptorPoolCreateInfo dp_ci = vk::DescriptorPoolCreateInfo{
-        .maxSets = 4 * m_num_frames,
+        .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+        .maxSets = 2 * m_num_frames,
     }.setPoolSizes(pool_size);
 
     m_descriptor_pool = device.createDescriptorPool(dp_ci);
+    std::cerr << "Created descriptor pool: " << *m_descriptor_pool << "\n";
 }
 
 void gfx::Uniforms::initDescriptorSetLayouts() {
-    m_scene_descriptor_set_layout = SceneUniformSet::createDescriptorSetLayout(m_system);
+    m_scene_descriptor_set_layout = SceneUniformSet::createDescriptorSetLayout(m_system);\
+    std::cerr << "Created scene uniform descriptor layout: " << *m_scene_descriptor_set_layout << "\n";
     m_model_descriptor_set_layout = ModelUniformSet::createDescriptorSetLayout(m_system);
+    std::cerr << "Created model uniform descriptor layout: " << *m_model_descriptor_set_layout << "\n";
 }
 
 gfx::UniformSet::UniformSet()
@@ -89,24 +79,13 @@ gfx::UniformSet::UniformSet(Uniforms *uniforms) : UniformSet() {
     m_uniforms = uniforms;
 }
 
-// gfx::UniformSet::UniformSet(UniformSet &&other) : UniformSet() {
-//     *this = std::move(other);
-// }
-
 gfx::UniformSet::~UniformSet() {}
-
-// gfx::UniformSet &gfx::UniformSet::operator=(UniformSet &&other) {
-//     m_uniforms = other.m_uniforms;
-//     std::swap(m_descriptor_sets, other.m_descriptor_sets);
-//     return *this;
-// }
 
 gfx::Uniforms *gfx::UniformSet::uniforms() {
     return m_uniforms;
 }
 
-const std::vector<vk::raii::DescriptorSet> &gfx::UniformSet::descriptorSets() const
-{
+const std::vector<vk::raii::DescriptorSet> &gfx::UniformSet::descriptorSets() const {
     return m_descriptor_sets;
 }
 
@@ -138,36 +117,22 @@ gfx::SceneUniformSet::SceneUniformSet(Uniforms *uniforms)
     }
 
     initUniformBuffers();
+    initDescriptorSets();
 }
-
-// gfx::SceneUniformSet::SceneUniformSet(SceneUniformSet &&other)
-// : UniformSet(std::move(other))
-// {
-//     *this = std::move(other);
-// }
 
 gfx::SceneUniformSet::~SceneUniformSet() {
-    for (auto &alloc : m_view_projection_buffer_allocations) {
-        vmaFreeMemory(m_uniforms->system()->allocator(), alloc);
-    }
+    if (m_uniforms != nullptr) {
+        for (auto &alloc : m_view_projection_buffer_allocations) {
+            std::cerr << "Freeing view projection buffer allocation " << alloc << "\n";
+            vmaFreeMemory(m_uniforms->system()->allocator(), alloc);
+        }
 
-    for (auto &alloc : m_light_list_buffer_allocations) {
-        vmaFreeMemory(m_uniforms->system()->allocator(), alloc);
+        for (auto &alloc : m_light_list_buffer_allocations) {
+            std::cerr << "Freeing light list buffer allocation " << alloc << "\n";
+            vmaFreeMemory(m_uniforms->system()->allocator(), alloc);
+        }
     }
 }
-
-// gfx::SceneUniformSet &gfx::SceneUniformSet::operator=(SceneUniformSet &&other) {
-//     m_view_projection = other.m_view_projection;
-//     for (int i = 0; i < MAX_LIGHTS; ++i) {
-//         m_lights[i].enabled = other.m_lights[i].enabled;
-//         m_lights[i].direction = other.m_lights[i].direction;
-//     }
-//     std::swap(m_view_projection_buffers, other.m_view_projection_buffers);
-//     std::swap(m_view_projection_buffer_allocations, other.m_view_projection_buffer_allocations);
-//     std::swap(m_light_list_buffers, other.m_light_list_buffers);
-//     std::swap(m_light_list_buffer_allocations, other.m_light_list_buffer_allocations);
-//     return *this;
-// }
 
 vk::raii::DescriptorSetLayout gfx::SceneUniformSet::createDescriptorSetLayout(System *gfx) {
     const vk::raii::Device &device = gfx->device();
@@ -272,7 +237,8 @@ void gfx::SceneUniformSet::initUniformBuffers() {
         auto [buffer, allocation] = gfx->createBuffer(
             vp_buffer_size,
             vk::BufferUsageFlagBits::eUniformBuffer,
-            VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
+            VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+            "view projection uniform"
         );
 
         m_view_projection_buffers.emplace_back(std::move(buffer));
@@ -292,7 +258,8 @@ void gfx::SceneUniformSet::initUniformBuffers() {
         auto [buffer, allocation] = gfx->createBuffer(
             light_list_buffer_size,
             vk::BufferUsageFlagBits::eUniformBuffer,
-            VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
+            VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+            "light list uniform"
         );
         m_light_list_buffers.emplace_back(std::move(buffer));
         m_light_list_buffer_allocations.push_back(allocation);
@@ -313,6 +280,11 @@ void gfx::SceneUniformSet::initDescriptorSets() {
     }.setSetLayouts(layouts);
 
     m_descriptor_sets = device.allocateDescriptorSets(ds_ai);
+    std::cerr << "Allocated " << num_sets << " descriptor sets for scene uniforms: [ ";
+    for (auto &ds : m_descriptor_sets) {
+        std::cerr << *ds << " ";
+    }
+    std::cerr << "]\n";
 
     std::vector<vk::WriteDescriptorSet> writes{};
     for (uint32_t i = 0; i < num_sets; ++i) {
@@ -364,26 +336,16 @@ gfx::ModelUniformSet::ModelUniformSet(Uniforms *uniforms)
     m_model_buffer_allocations{}
 {
     initUniformBuffers();
+    initDescriptorSets();
 }
-
-// gfx::ModelUniformSet::ModelUniformSet(ModelUniformSet &&other)
-// : UniformSet(std::move(other))
-// {
-//     *this = std::move(other);
-// }
 
 gfx::ModelUniformSet::~ModelUniformSet() {
-    for (auto &alloc : m_model_buffer_allocations) {
-        vmaFreeMemory(m_uniforms->system()->allocator(), alloc);
+    if (m_uniforms != nullptr) {
+        for (auto &alloc : m_model_buffer_allocations) {
+            vmaFreeMemory(m_uniforms->system()->allocator(), alloc);
+        }
     }
 }
-
-// gfx::ModelUniformSet &gfx::ModelUniformSet::operator=(ModelUniformSet &&other) {
-//     m_model_transform = other.m_model_transform;
-//     std::swap(m_model_buffers, other.m_model_buffers);
-//     std::swap(m_model_buffer_allocations, other.m_model_buffer_allocations);
-//     return *this;
-// }
 
 vk::raii::DescriptorSetLayout gfx::ModelUniformSet::createDescriptorSetLayout(System *gfx) {
     const vk::raii::Device &device = gfx->device();
@@ -446,7 +408,8 @@ void gfx::ModelUniformSet::initUniformBuffers() {
         auto [buffer, allocation] = gfx->createBuffer(
             buffer_size,
             vk::BufferUsageFlagBits::eUniformBuffer,
-            VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT
+            VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+            "model uniform"
         );
 
         m_model_buffers.emplace_back(std::move(buffer));
@@ -468,6 +431,12 @@ void gfx::ModelUniformSet::initDescriptorSets() {
     }.setSetLayouts(layouts);
 
     m_descriptor_sets = device.allocateDescriptorSets(ds_ai);
+    std::cerr << "Allocated " << num_sets << " descriptor sets for model uniforms: [ ";
+    for (auto &ds : m_descriptor_sets) {
+        std::cerr << *ds << " ";
+    }
+    std::cerr << "]\n";
+
 
     std::vector<vk::WriteDescriptorSet> writes{};
     for (uint32_t i = 0; i < num_sets; ++i) {

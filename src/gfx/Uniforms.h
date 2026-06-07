@@ -28,14 +28,7 @@ namespace gfx {
     public:
         Uniforms();
         Uniforms(System *system, uint32_t num_frames);
-        // Uniforms(const Uniforms &other) = delete;
-        // Uniforms(Uniforms &&other) = default;
-
-        // ~Uniforms();
-
-        // Uniforms &operator=(const Uniforms &other) = delete;
-        // Uniforms &operator=(Uniforms &&other) = default;
-
+        
         System* system();
         const vk::raii::DescriptorPool &descriptorPool() const;
         uint32_t numFrames() const;

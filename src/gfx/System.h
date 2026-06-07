@@ -3,6 +3,8 @@
 #ifndef _VPLANET_GFX_SYSTEM_H_
 #define _VPLANET_GFX_SYSTEM_H_
 
+#include <optional>
+#include <string>
 #include <vector>
 
 #include "../vulkan.h"
@@ -71,13 +73,15 @@ namespace gfx {
         std::pair<vk::raii::Buffer, VmaAllocation> createBuffer(
             vk::DeviceSize size, 
             vk::BufferUsageFlags usage,
-            VmaAllocationCreateFlags allocation_flags
+            VmaAllocationCreateFlags allocation_flags,
+            const std::optional<std::string> &name
         );
         std::pair<vk::raii::Buffer, VmaAllocation> createBufferWithData(
             const void *data, 
             size_t size, 
             vk::BufferUsageFlags usage,
-            VmaAllocationCreateFlags allocation_flags
+            VmaAllocationCreateFlags allocation_flags,
+            const std::optional<std::string> &name
         );
         void copyBuffer(const vk::raii::Buffer &dst, const vk::raii::Buffer &src, vk::DeviceSize size);
 
@@ -143,11 +147,11 @@ namespace gfx {
 
         VmaAllocator m_allocator;
 
-        Commands m_commands;
-        Swapchain m_swapchain;
-        DepthBuffer m_depth_buffer;
-        Renderer m_renderer;
-        Uniforms m_uniforms;
+        std::unique_ptr<Commands> m_commands;
+        std::unique_ptr<Swapchain> m_swapchain;
+        std::unique_ptr<Uniforms> m_uniforms;
+        std::unique_ptr<DepthBuffer> m_depth_buffer;
+        std::unique_ptr<Renderer> m_renderer;
     };
 };
 

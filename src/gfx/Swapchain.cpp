@@ -1,7 +1,7 @@
 // -*- mode: c++; c-basic-offset: 4; encoding: utf-8; -*-
 
 #include <algorithm>
-#include <sstream>
+#include <iostream>
 #include <vector>
 #include "../vulkan.h"
 #include "Swapchain.h"
@@ -68,6 +68,56 @@ vk::Extent2D gfx::Swapchain::extent() const {
     return m_extent;
 }
 
+void gfx::Swapchain::transitionImageToColorAttachment(const vk::raii::CommandBuffer &cmd_buf, uint32_t image_index) const {
+    vk::ImageMemoryBarrier2 barrier{
+        .srcStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+        .srcAccessMask = {},
+        .dstStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+        .dstAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
+        .oldLayout = vk::ImageLayout::eUndefined,
+        .newLayout = vk::ImageLayout::eColorAttachmentOptimal,
+        .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
+        .dstQueueFamilyIndex = vk::QueueFamilyIgnored,
+        .image = m_images[image_index],
+        .subresourceRange = {
+            .aspectMask = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        },
+    };
+
+    vk::DependencyInfo dep = vk::DependencyInfo{}.setImageMemoryBarriers(barrier);
+
+    cmd_buf.pipelineBarrier2(dep);
+}
+
+void gfx::Swapchain::transitionImageToPresentable(const vk::raii::CommandBuffer &cmd_buf, uint32_t image_index) const {
+    vk::ImageMemoryBarrier2 barrier{
+        .srcStageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+        .srcAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eBottomOfPipe,
+        .dstAccessMask = {},
+        .oldLayout = vk::ImageLayout::eColorAttachmentOptimal,
+        .newLayout = vk::ImageLayout::ePresentSrcKHR,
+        .srcQueueFamilyIndex = vk::QueueFamilyIgnored,
+        .dstQueueFamilyIndex = vk::QueueFamilyIgnored,
+        .image = m_images[image_index],
+        .subresourceRange = {
+            .aspectMask = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        },
+    };
+
+    vk::DependencyInfo dep = vk::DependencyInfo{}.setImageMemoryBarriers(barrier);
+
+    cmd_buf.pipelineBarrier2(dep);
+}
+
 void gfx::Swapchain::initSwapchain() {
     GLFWwindow *window = m_system->window();
     const vk::raii::Device &device = m_system->device();
@@ -110,6 +160,7 @@ void gfx::Swapchain::initSwapchain() {
     }.setQueueFamilyIndices(queue_families);
 
     m_swapchain = device.createSwapchainKHR(swap_ci);
+    std::cerr << "Created swapchain: " << *m_swapchain << "\n";
 }
 
 void gfx::Swapchain::initImageViews() {
@@ -137,6 +188,7 @@ void gfx::Swapchain::initImageViews() {
     for (auto &image : m_images) {
         iv_ci.setImage(image);
         m_image_views.emplace_back(device, iv_ci);
+        std::cerr << "Created image view " << *m_image_views.back() << " for swapchain image " << image << "\n";
     }
 }
 

@@ -14,7 +14,7 @@ namespace gfx {
         DepthBuffer();
         DepthBuffer(System *system);
         DepthBuffer(const DepthBuffer &other) = delete;
-        DepthBuffer(DepthBuffer &&other);
+        DepthBuffer(DepthBuffer &&other) = delete;
         
         ~DepthBuffer();
 

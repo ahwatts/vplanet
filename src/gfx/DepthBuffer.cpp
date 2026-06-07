@@ -1,7 +1,7 @@
 // -*- mode: c++; c-basic-offset: 4; encoding: utf-8; -*-
 
 #include <array>
-#include <sstream>
+#include <iostream>
 #include "../vulkan.h"
 #include "DepthBuffer.h"
 #include "System.h"
@@ -22,11 +22,11 @@ gfx::DepthBuffer::DepthBuffer(System *system) : DepthBuffer() {
     transitionImageLayout();
 }
 
-gfx::DepthBuffer::DepthBuffer(DepthBuffer &&other) : DepthBuffer() {
-    *this = std::move(other);
+gfx::DepthBuffer::~DepthBuffer() {
+    if (m_system != nullptr && m_image_allocation != VK_NULL_HANDLE) {
+        vmaFreeMemory(m_system->allocator(), m_image_allocation);
+    }
 }
-
-gfx::DepthBuffer::~DepthBuffer() {}
 
 gfx::DepthBuffer &gfx::DepthBuffer::operator=(DepthBuffer &&other) {
     m_system = other.m_system;
@@ -69,7 +69,6 @@ void gfx::DepthBuffer::initDepthResources() {
         .sharingMode = vk::SharingMode::eExclusive,
         .initialLayout = vk::ImageLayout::eUndefined,
     };
-    // m_image = device.createImage(img_ci);
 
     VkImage image;
     VmaAllocationCreateInfo alloc_ci{.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE};
@@ -82,6 +81,8 @@ void gfx::DepthBuffer::initDepthResources() {
         nullptr
     );
     m_image = vk::raii::Image(device, image);
+    std::cerr << "Created depth buffer image " << *m_image << "\n";
+    std::cerr << "Created depth buffer image memory allocation: " << m_image_allocation << "\n";
 
     vk::ImageViewCreateInfo iv_ci{
         .image = *m_image,
@@ -102,6 +103,7 @@ void gfx::DepthBuffer::initDepthResources() {
         }
     };
     m_image_view = device.createImageView(iv_ci);
+    std::cerr << "Created depth buffer image view " << *m_image_view << "\n";
 }
 
 void gfx::DepthBuffer::transitionImageLayout() {

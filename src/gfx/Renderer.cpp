@@ -1,6 +1,6 @@
 // -*- mode: c++; c-basic-offset: 4; encoding: utf-8; -*-
 
-#include <sstream>
+#include <iostream>
 #include <vector>
 
 #include "../vulkan.h"
@@ -21,7 +21,7 @@ gfx::Renderer::Renderer(System *system) : Renderer() {
     m_uniform_set = SceneUniformSet(&system->uniforms());
     initPipelineLayout();
     m_ocean_pipeline = OceanPipeline(this);
-    m_terrain_pipeline = TerrainPipeline(this);
+    // m_terrain_pipeline = TerrainPipeline(this);
 }
 
 // gfx::Renderer::~Renderer() {}
@@ -66,6 +66,9 @@ void gfx::Renderer::recordCommands(const vk::raii::CommandBuffer &cmd_buf, uint3
     const DepthBuffer &depth_buffer = m_system->depthBuffer();
     const Swapchain &swapchain = m_system->swapchain();
     vk::Extent2D swapchain_extent = swapchain.extent();
+    const std::vector<vk::raii::DescriptorSet> &scene_uniforms = m_uniform_set.descriptorSets();
+
+    swapchain.transitionImageToColorAttachment(cmd_buf, image_index);
 
     vk::RenderingAttachmentInfo color_ai{
         .imageView = *swapchain.imageViews()[image_index],
@@ -86,16 +89,17 @@ void gfx::Renderer::recordCommands(const vk::raii::CommandBuffer &cmd_buf, uint3
         .layerCount = 1,
         .pDepthAttachment = &depth_ai,
     }.setColorAttachments(color_ai);
-
-    const std::vector<vk::raii::DescriptorSet> &scene_uniforms = m_uniform_set.descriptorSets();
-
     cmd_buf.beginRendering(ri);
+
     cmd_buf.setViewport(0, vk::Viewport{0.0f, 0.0f, static_cast<float>(swapchain_extent.width), static_cast<float>(swapchain_extent.height)});
     cmd_buf.setScissor(0, vk::Rect2D{vk::Offset2D{0, 0}, swapchain_extent});
     cmd_buf.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *m_pipeline_layout, 0, *scene_uniforms[frame_index], nullptr);
-    m_terrain_pipeline.recordCommands(cmd_buf, frame_index);
+    // m_terrain_pipeline.recordCommands(cmd_buf, frame_index);
     m_ocean_pipeline.recordCommands(cmd_buf, frame_index);
+    
     cmd_buf.endRendering();
+
+    swapchain.transitionImageToPresentable(cmd_buf, image_index);
 }
 
 void gfx::Renderer::initPipelineLayout() {
@@ -111,4 +115,5 @@ void gfx::Renderer::initPipelineLayout() {
         .setSetLayouts(layouts);
     
     m_pipeline_layout = device.createPipelineLayout(pl_ci);
+    std::cerr << "Created planet rendering pipeline layout " << *m_pipeline_layout << "\n";
 }

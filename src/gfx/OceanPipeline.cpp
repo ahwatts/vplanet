@@ -1,6 +1,6 @@
 // -*- mode: c++; c-basic-offset: 4; encoding: utf-8; -*-
 
-#include <sstream>
+#include <iostream>
 #include <vector>
 
 #include "../vulkan.h"
@@ -32,14 +32,18 @@ gfx::OceanPipeline::OceanPipeline(Renderer *renderer) : OceanPipeline() {
 }
 
 gfx::OceanPipeline::~OceanPipeline() {
-    if (m_vertex_buffer_allocation != nullptr) {
-        vmaFreeMemory(m_renderer->system()->allocator(), m_vertex_buffer_allocation);
-        m_vertex_buffer_allocation = nullptr;
-    }
-    
-    if (m_index_buffer_allocation != nullptr) {
-        vmaFreeMemory(m_renderer->system()->allocator(), m_index_buffer_allocation);
-        m_index_buffer_allocation = nullptr;
+    if (m_renderer != nullptr) {
+        if (m_vertex_buffer_allocation != nullptr) {
+            std::cerr << "Freeing ocean vertex buffer allocation " << m_vertex_buffer_allocation << "\n";
+            vmaFreeMemory(m_renderer->system()->allocator(), m_vertex_buffer_allocation);
+            m_vertex_buffer_allocation = nullptr;
+        }
+        
+        if (m_index_buffer_allocation != nullptr) {
+            std::cerr << "Freeing ocean index buffer allocation " << m_index_buffer_allocation << "\n";
+            vmaFreeMemory(m_renderer->system()->allocator(), m_index_buffer_allocation);
+            m_index_buffer_allocation = nullptr;
+        }
     }
 }
 
@@ -67,13 +71,14 @@ void gfx::OceanPipeline::setGeometry(const std::vector<OceanVertex> &verts, cons
 
     std::tie(m_vertex_buffer, m_vertex_buffer_allocation) = gfx->createBufferWithData(
         verts.data(), verts.size() * sizeof(OceanVertex),
-        vk::BufferUsageFlagBits::eVertexBuffer,
-        0
+        vk::BufferUsageFlagBits::eVertexBuffer, 0,
+        "ocean vertex"
     );
 
     std::tie(m_index_buffer, m_index_buffer_allocation) = gfx->createBufferWithData(
         indices.data(), indices.size() * sizeof(uint32_t),
-        vk::BufferUsageFlagBits::eIndexBuffer, 0
+        vk::BufferUsageFlagBits::eIndexBuffer, 0,
+        "ocean index"
     );
 
     m_num_indices = static_cast<uint32_t>(indices.size());
@@ -194,4 +199,5 @@ void gfx::OceanPipeline::initPipeline() {
         .setColorAttachmentFormats(swapchain_format.format);
     
     m_pipeline = device.createGraphicsPipeline(nullptr, pipeline_ci.get<vk::GraphicsPipelineCreateInfo>());
+    std::cerr << "Created ocean graphics pipeline " << *m_pipeline << "\n";
 }

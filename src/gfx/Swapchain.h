@@ -13,20 +13,16 @@ namespace gfx {
     public:
         Swapchain();
         Swapchain(System *system);
-        // Swapchain(const Swapchain &other) = delete;
-        // Swapchain(Swapchain &&other) = default;
         
-        // ~Swapchain();
-        
-        // Swapchain &operator=(const Swapchain &other) = delete;
-        // Swapchain &operator=(Swapchain &&other) = default;
-
         const vk::raii::SwapchainKHR& swapchain() const;
         const std::vector<vk::Image>& images() const;
         const std::vector<vk::raii::ImageView>& imageViews() const;
         uint32_t imageCount() const;
         vk::SurfaceFormatKHR format() const;
         vk::Extent2D extent() const;
+
+        void transitionImageToColorAttachment(const vk::raii::CommandBuffer &cmd_buf, uint32_t image_index) const;
+        void transitionImageToPresentable(const vk::raii::CommandBuffer &cmd_buf, uint32_t image_index) const;
 
     private:
         void initSwapchain();

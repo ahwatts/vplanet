@@ -10,7 +10,6 @@
 class Application {
 public:
     Application(GLFWwindow *window);
-    ~Application();
 
     void run();
 
