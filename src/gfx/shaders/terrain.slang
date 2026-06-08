@@ -1,5 +1,6 @@
 struct ViewProjectionTransformation {
     float4x4 view;
+    float4x4 view_inv;
     float4x4 projection;
 }
 

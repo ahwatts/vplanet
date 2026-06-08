@@ -45,6 +45,7 @@ Application::Application(GLFWwindow *window)
         glm::vec3{0.0, 0.0, 5.0},
         glm::vec3{0.0, 0.0, 0.0},
         glm::vec3{0.0, 1.0, 0.0});
+    vp_xform.view_inv = glm::inverse(vp_xform.view);
     vp_xform.projection = glm::perspectiveFov(
         20.0f,
         static_cast<float>(m_window_width),
@@ -62,7 +63,7 @@ Application::Application(GLFWwindow *window)
 }
 
 void Application::run() {
-    glm::mat4x4 model;
+    glm::mat4x4 model{1.0};
 
     try {
         static auto start_time = std::chrono::high_resolution_clock::now();

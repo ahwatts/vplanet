@@ -16,6 +16,7 @@ namespace gfx {
 
     struct ViewProjectionTransform {
         glm::mat4x4 view;
+        glm::mat4x4 view_inv;
         glm::mat4x4 projection;
     };
 

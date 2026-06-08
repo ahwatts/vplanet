@@ -8,6 +8,9 @@
 #include "../vulkan.h"
 #include "../VmaUsage.h"
 
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/io.hpp>
+
 #include "System.h"
 #include "Uniforms.h"
 
@@ -291,7 +294,7 @@ void gfx::SceneUniformSet::initDescriptorSets() {
         vk::DescriptorBufferInfo vp_buffer_info{
             .buffer = *m_view_projection_buffers[i],
             .offset = 0,
-            .range = sizeof(ViewProjectionTransform),
+            .range = sizeof(m_view_projection),
         };
 
         vk::WriteDescriptorSet vp_write = vk::WriteDescriptorSet{
@@ -369,6 +372,7 @@ const vk::raii::DescriptorSetLayout &gfx::ModelUniformSet::descriptorSetLayout()
 
 void gfx::ModelUniformSet::setTransform(const glm::mat4x4 &model) {
     m_model_transform = model;
+
 }
 
 void gfx::ModelUniformSet::updateModelBuffer(uint32_t buffer_index) {
