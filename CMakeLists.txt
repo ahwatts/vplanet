@@ -10,7 +10,27 @@ if(ENABLE_CPP20_MODULE)
   set(CMAKE_CXX_SCAN_FOR_MODULES ON)
 endif()
 
-function(compile_spirv out_var)
+function(compile_glsl_spirv out_var)
+  set(result)
+  foreach(in_file ${ARGN})
+    file(RELATIVE_PATH src_file ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/${in_file})
+    set(out_file ${PROJECT_BINARY_DIR}/${in_file}.spv)
+    get_filename_component(out_dir ${out_file} DIRECTORY)
+    file(MAKE_DIRECTORY ${out_dir})
+    file(RELATIVE_PATH dst_file ${CMAKE_SOURCE_DIR} ${out_file})
+    add_custom_command(
+      OUTPUT ${out_file}
+      COMMAND glslangValidator -V -o ${dst_file} ${src_file}
+      DEPENDS ${in_file}
+      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+      COMMENT "Building SPIR-V binary from GLSL to ${dst_file}"
+      VERBATIM)
+    list(APPEND result "${dst_file}")
+  endforeach()
+  set(${out_var} "${result}" PARENT_SCOPE)
+endfunction()
+
+function(compile_slang_spirv out_var)
   set(result)
   foreach(in_file ${ARGN})
     file(RELATIVE_PATH src_file ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/${in_file})
@@ -23,7 +43,7 @@ function(compile_spirv out_var)
       COMMAND slangc ${src_file} -target spirv -profile spirv_1_4 -emit-spirv-directly -fvk-use-entrypoint-name -entry vs_main -entry fs_main -o ${out_file}
       DEPENDS ${in_file}
       WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-      COMMENT "Building SPIR-V binary ${dst_file}"
+      COMMENT "Building SPIR-V binary from Slang to ${dst_file}"
       VERBATIM)
     list(APPEND result "${dst_file}")
   endforeach()
@@ -47,12 +67,19 @@ endif()
 add_subdirectory(vendor/embed-resource)
 add_subdirectory(vendor/VulkanMemoryAllocator-3.3.0)
 
-compile_spirv(SPIRV_SHADERS
+compile_glsl_spirv(GLSL_SPIRV_SHADERS
+  src/gfx/shaders/ocean.vert
+  src/gfx/shaders/ocean.frag
+  src/gfx/shaders/terrain.vert
+  src/gfx/shaders/terrain.frag
+)
+
+compile_slang_spirv(SLANG_SPIRV_SHADERS
   src/gfx/shaders/ocean.slang
   src/gfx/shaders/terrain.slang
 )
 
-embed_resources(EMBEDDED_SHADERS ${SPIRV_SHADERS})
+embed_resources(EMBEDDED_SHADERS ${GLSL_SPIRV_SHADERS} ${SLANG_SPIRV_SHADERS})
 
 # set up Vulkan C++ module only if enabled
 if(ENABLE_CPP20_MODULE)

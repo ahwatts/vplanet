@@ -14,7 +14,9 @@
 #include "System.h"
 #include "Uniforms.h"
 
-const std::vector<unsigned char> &TERRAIN_SHADER_BYTECODE = LOAD_RESOURCE(terrain_slang_spv);
+const std::vector<unsigned char> &TERRAIN_SLANG_SHADER_BYTECODE = LOAD_RESOURCE(terrain_slang_spv);
+const std::vector<unsigned char> &TERRAIN_GLSL_VERTEX_SHADER_BYTECODE = LOAD_RESOURCE(terrain_vert_spv);
+const std::vector<unsigned char> &TERRAIN_GLSL_FRAGMENT_SHADER_BYTECODE = LOAD_RESOURCE(terrain_frag_spv);
 
 gfx::TerrainPipeline::TerrainPipeline()
 : Pipeline{},
@@ -102,8 +104,8 @@ void gfx::TerrainPipeline::initPipeline() {
     vk::Format depth_format = system->depthBuffer().format();
 
     vk::ShaderModuleCreateInfo sm_ci{
-        .codeSize = TERRAIN_SHADER_BYTECODE.size() * sizeof(std::remove_reference<decltype(TERRAIN_SHADER_BYTECODE)>::type::value_type),
-        .pCode = reinterpret_cast<const uint32_t *>(TERRAIN_SHADER_BYTECODE.data()),
+        .codeSize = TERRAIN_SLANG_SHADER_BYTECODE.size() * sizeof(std::remove_reference<decltype(TERRAIN_SLANG_SHADER_BYTECODE)>::type::value_type),
+        .pCode = reinterpret_cast<const uint32_t *>(TERRAIN_SLANG_SHADER_BYTECODE.data()),
     };
     vk::raii::ShaderModule shader = device.createShaderModule(sm_ci);
 
@@ -119,6 +121,31 @@ void gfx::TerrainPipeline::initPipeline() {
             .pName = "fs_main",
         },
     };
+
+    // vk::ShaderModuleCreateInfo vsm_ci{
+    //     .codeSize = TERRAIN_GLSL_VERTEX_SHADER_BYTECODE.size() * sizeof(std::remove_reference<decltype(TERRAIN_GLSL_VERTEX_SHADER_BYTECODE)>::type::value_type),
+    //     .pCode = reinterpret_cast<const uint32_t *>(TERRAIN_GLSL_VERTEX_SHADER_BYTECODE.data()),
+    // };
+    // vk::raii::ShaderModule vertex_shader = device.createShaderModule(vsm_ci);
+
+    // vk::ShaderModuleCreateInfo fsm_ci{
+    //     .codeSize = TERRAIN_GLSL_FRAGMENT_SHADER_BYTECODE.size() * sizeof(std::remove_reference<decltype(TERRAIN_GLSL_FRAGMENT_SHADER_BYTECODE)>::type::value_type),
+    //     .pCode = reinterpret_cast<const uint32_t *>(TERRAIN_GLSL_FRAGMENT_SHADER_BYTECODE.data()),
+    // };
+    // vk::raii::ShaderModule fragment_shader = device.createShaderModule(fsm_ci);
+
+    // std::array<vk::PipelineShaderStageCreateInfo, 2> shader_stages{
+    //     vk::PipelineShaderStageCreateInfo{
+    //         .stage = vk::ShaderStageFlagBits::eVertex,
+    //         .module = *vertex_shader,
+    //         .pName = "main",
+    //     },
+    //     vk::PipelineShaderStageCreateInfo{
+    //         .stage = vk::ShaderStageFlagBits::eFragment,
+    //         .module = *fragment_shader,
+    //         .pName = "main",
+    //     },
+    // };
 
     vk::VertexInputBindingDescription bind_desc = TerrainVertex::bindingDescription();
     std::array<vk::VertexInputAttributeDescription, TerrainVertex::NUM_ATTRIBUTES> attr_desc = TerrainVertex::attributeDescription();

@@ -5,6 +5,7 @@ layout(location = 1) in vec3 inNormal;
 
 layout(set = 0, binding = 0) uniform ViewProjectionTransformation {
     mat4x4 view;
+    mat4x3 view_inv;
     mat4x4 projection;
 };
 

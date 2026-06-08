@@ -13,7 +13,9 @@
 #include "Resource.h"
 #include "System.h"
 
-const std::vector<unsigned char> &OCEAN_SHADER_BYTECODE = LOAD_RESOURCE(ocean_slang_spv);
+const std::vector<unsigned char> &OCEAN_SLANG_SHADER_BYTECODE = LOAD_RESOURCE(ocean_slang_spv);
+const std::vector<unsigned char> &OCEAN_GLSL_VERTEX_SHADER_BYTECODE = LOAD_RESOURCE(ocean_vert_spv);
+const std::vector<unsigned char> &OCEAN_GLSL_FRAGMENT_SHADER_BYTECODE = LOAD_RESOURCE(ocean_frag_spv);
 
 gfx::OceanPipeline::OceanPipeline()
 : Pipeline(nullptr),
@@ -101,8 +103,8 @@ void gfx::OceanPipeline::initPipeline() {
     vk::Format depth_format = system->depthBuffer().format();
 
     vk::ShaderModuleCreateInfo sm_ci{
-        .codeSize = OCEAN_SHADER_BYTECODE.size() * sizeof(std::remove_reference<decltype(OCEAN_SHADER_BYTECODE)>::type::value_type),
-        .pCode = reinterpret_cast<const uint32_t *>(OCEAN_SHADER_BYTECODE.data()),
+        .codeSize = OCEAN_SLANG_SHADER_BYTECODE.size() * sizeof(std::remove_reference<decltype(OCEAN_SLANG_SHADER_BYTECODE)>::type::value_type),
+        .pCode = reinterpret_cast<const uint32_t *>(OCEAN_SLANG_SHADER_BYTECODE.data()),
     };
     vk::raii::ShaderModule shader = device.createShaderModule(sm_ci);
 
@@ -118,6 +120,31 @@ void gfx::OceanPipeline::initPipeline() {
             .pName = "fs_main",
         },
     };
+
+    // vk::ShaderModuleCreateInfo vsm_ci{
+    //     .codeSize = OCEAN_GLSL_VERTEX_SHADER_BYTECODE.size() * sizeof(std::remove_reference<decltype(OCEAN_GLSL_VERTEX_SHADER_BYTECODE)>::type::value_type),
+    //     .pCode = reinterpret_cast<const uint32_t *>(OCEAN_GLSL_VERTEX_SHADER_BYTECODE.data()),
+    // };
+    // vk::raii::ShaderModule vertex_shader = device.createShaderModule(vsm_ci);
+
+    // vk::ShaderModuleCreateInfo fsm_ci{
+    //     .codeSize = OCEAN_GLSL_FRAGMENT_SHADER_BYTECODE.size() * sizeof(std::remove_reference<decltype(OCEAN_GLSL_FRAGMENT_SHADER_BYTECODE)>::type::value_type),
+    //     .pCode = reinterpret_cast<const uint32_t *>(OCEAN_GLSL_FRAGMENT_SHADER_BYTECODE.data()),
+    // };
+    // vk::raii::ShaderModule fragment_shader = device.createShaderModule(fsm_ci);
+
+    // std::array<vk::PipelineShaderStageCreateInfo, 2> shader_stages{
+    //     vk::PipelineShaderStageCreateInfo{
+    //         .stage = vk::ShaderStageFlagBits::eVertex,
+    //         .module = *vertex_shader,
+    //         .pName = "main",
+    //     },
+    //     vk::PipelineShaderStageCreateInfo{
+    //         .stage = vk::ShaderStageFlagBits::eFragment,
+    //         .module = *fragment_shader,
+    //         .pName = "main",
+    //     },
+    // };
 
     vk::VertexInputBindingDescription bind_desc = OceanVertex::bindingDescription();
     std::array<vk::VertexInputAttributeDescription, OceanVertex::NUM_ATTRIBUTES> attr_desc = OceanVertex::attributeDescription();

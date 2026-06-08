@@ -7,6 +7,7 @@ layout(location = 2) in vec3 inNormal;
 
 layout(set = 0, binding = 0) uniform ViewProjectionTransformation {
     mat4x4 view;
+    mat4x4 view_inv;
     mat4x4 projection;
 };
 
@@ -23,7 +24,6 @@ layout(location = 1) out vec3 outNormal;
 layout(location = 2) out vec3 outEyeDir;
 
 void main(void) {
-    mat4x4 view_inv = inverse(view);
     vec4 wld_vert_pos4 = model * vec4(inPosition, 1.0);
     vec3 wld_vert_pos = wld_vert_pos4.xyz / wld_vert_pos4.w;
 
