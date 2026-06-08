@@ -55,11 +55,11 @@ void gfx::Uniforms::initDescriptorPool() {
 
     vk::DescriptorPoolSize pool_size{
         .type = vk::DescriptorType::eUniformBuffer,
-        .descriptorCount = 2 * m_num_frames,
+        .descriptorCount = 4 * m_num_frames,
     };
     vk::DescriptorPoolCreateInfo dp_ci = vk::DescriptorPoolCreateInfo{
         .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
-        .maxSets = 2 * m_num_frames,
+        .maxSets = 4 * m_num_frames,
     }.setPoolSizes(pool_size);
 
     m_descriptor_pool = device.createDescriptorPool(dp_ci);

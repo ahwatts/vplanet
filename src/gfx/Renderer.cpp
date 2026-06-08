@@ -21,7 +21,7 @@ gfx::Renderer::Renderer(System *system) : Renderer() {
     m_uniform_set = SceneUniformSet(&system->uniforms());
     initPipelineLayout();
     m_ocean_pipeline = OceanPipeline(this);
-    // m_terrain_pipeline = TerrainPipeline(this);
+    m_terrain_pipeline = TerrainPipeline(this);
 }
 
 // gfx::Renderer::~Renderer() {}
@@ -81,7 +81,7 @@ void gfx::Renderer::recordCommands(const vk::raii::CommandBuffer &cmd_buf, uint3
         .imageView = *depth_buffer.imageView(),
         .imageLayout = vk::ImageLayout::eDepthAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eClear,
-        .storeOp = vk::AttachmentStoreOp::eStore,
+        .storeOp = vk::AttachmentStoreOp::eDontCare,
         .clearValue = vk::ClearDepthStencilValue{1.0f, 0},
     };
     vk::RenderingInfo ri = vk::RenderingInfo{
@@ -91,12 +91,12 @@ void gfx::Renderer::recordCommands(const vk::raii::CommandBuffer &cmd_buf, uint3
     }.setColorAttachments(color_ai);
     cmd_buf.beginRendering(ri);
 
-    cmd_buf.setViewport(0, vk::Viewport{0.0f, 0.0f, static_cast<float>(swapchain_extent.width), static_cast<float>(swapchain_extent.height)});
+    cmd_buf.setViewport(0, vk::Viewport{0.0f, 0.0f, static_cast<float>(swapchain_extent.width), static_cast<float>(swapchain_extent.height), 0.0f, 1.0f});
     cmd_buf.setScissor(0, vk::Rect2D{vk::Offset2D{0, 0}, swapchain_extent});
     cmd_buf.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *m_pipeline_layout, 0, *scene_uniforms[frame_index], nullptr);
-    // m_terrain_pipeline.recordCommands(cmd_buf, frame_index);
     m_ocean_pipeline.recordCommands(cmd_buf, frame_index);
-    
+    m_terrain_pipeline.recordCommands(cmd_buf, frame_index);
+
     cmd_buf.endRendering();
 
     swapchain.transitionImageToPresentable(cmd_buf, image_index);

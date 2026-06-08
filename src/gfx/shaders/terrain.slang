@@ -22,7 +22,13 @@ struct VertexOutput {
     float3 normal;
 }
 
+[vk::binding(0, 0)]
 ConstantBuffer<ViewProjectionTransformation> vp_xforms;
+
+[vk::binding(1, 0)]
+ConstantBuffer<LightInfo[MAX_LIGHTS]> lights;
+
+[vk::binding(0, 1)]
 ConstantBuffer<float4x4> model_xform;
 
 [shader("vertex")]
@@ -33,8 +39,6 @@ VertexOutput vs_main(VertexInput in) {
     out.normal = mul(float3x3(model_xform), in.normal);
     return out;
 }
-
-ConstantBuffer<LightInfo[MAX_LIGHTS]> lights;
 
 [shader("fragment")]
 float4 fs_main(VertexOutput in) : SV_Target {

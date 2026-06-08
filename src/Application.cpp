@@ -33,8 +33,8 @@ Application::Application(GLFWwindow *window)
         .addControlPoint(1.0, 1.2);
     const Curve curved_noise{octave_noise, spline};
 
-    // Terrain terrain{2.0, 0, curved_noise};
-    // m_gfx.setTerrainGeometry(terrain.vertices(), terrain.elements());
+    Terrain terrain{2.0, 5, curved_noise};
+    m_gfx.setTerrainGeometry(terrain.vertices(), terrain.elements());
 
     Ocean ocean{1.97f, 5};
     m_gfx.setOceanGeometry(ocean.vertices(), ocean.indices());
@@ -72,9 +72,9 @@ void Application::run() {
             float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
             model = glm::rotate(glm::mat4x4{1.0}, time * glm::radians(15.0f), glm::vec3{0.0, 1.0, 0.0});
 
-            // m_gfx.setTerrainTransform(model);
+            m_gfx.setTerrainTransform(model);
             m_gfx.setOceanTransform(model);
-            // m_gfx.writeTerrainTransform();
+            m_gfx.writeTerrainTransform();
             m_gfx.writeOceanTransform();
             uint32_t image_index = m_gfx.startFrame();
             m_gfx.drawFrame(image_index);

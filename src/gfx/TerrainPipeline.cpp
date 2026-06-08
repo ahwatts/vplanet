@@ -19,6 +19,7 @@ const std::vector<unsigned char> &TERRAIN_SHADER_BYTECODE = LOAD_RESOURCE(terrai
 gfx::TerrainPipeline::TerrainPipeline()
 : Pipeline{},
   m_uniform_set{},
+  m_num_indices{0},
   m_vertex_buffer{nullptr},
   m_index_buffer{nullptr},
   m_vertex_buffer_allocation{nullptr},
@@ -32,14 +33,16 @@ gfx::TerrainPipeline::TerrainPipeline(Renderer *renderer) : TerrainPipeline() {
 }
 
 gfx::TerrainPipeline::~TerrainPipeline() {
-    if (m_vertex_buffer_allocation != nullptr) {
-        vmaFreeMemory(m_renderer->system()->allocator(), m_vertex_buffer_allocation);
-        m_vertex_buffer_allocation = nullptr;
-    }
+    if (m_renderer != nullptr) {
+        if (m_vertex_buffer_allocation != nullptr) {
+            vmaFreeMemory(m_renderer->system()->allocator(), m_vertex_buffer_allocation);
+            m_vertex_buffer_allocation = nullptr;
+        }
 
-    if (m_index_buffer_allocation != nullptr) {
-        vmaFreeMemory(m_renderer->system()->allocator(), m_index_buffer_allocation);
-        m_index_buffer_allocation = nullptr;
+        if (m_index_buffer_allocation != nullptr) {
+            vmaFreeMemory(m_renderer->system()->allocator(), m_index_buffer_allocation);
+            m_index_buffer_allocation = nullptr;
+        }
     }
 }
 
