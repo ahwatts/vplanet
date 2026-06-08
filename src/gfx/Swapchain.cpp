@@ -208,16 +208,19 @@ vk::Extent2D chooseSwapchainExtent(GLFWwindow *window, vk::SurfaceCapabilitiesKH
 vk::SurfaceFormatKHR chooseSwapchainFormat(const std::vector<vk::SurfaceFormatKHR> &formats) {
     assert(!formats.empty());
 
+    vk::Format desired_format = vk::Format::eB8G8R8A8Unorm;
+    vk::ColorSpaceKHR desired_color_space = vk::ColorSpaceKHR::eSrgbNonlinear;
+
     // If the device doesn't care, go with what we want.
     if (formats.size() == 1 && formats[0].format == vk::Format::eUndefined) {
-        return {vk::Format::eB8G8R8A8Srgb, vk::ColorSpaceKHR::eSrgbNonlinear};
+        return {desired_format, desired_color_space};
     }
 
     // If what we want is available, use it.
     auto format = std::ranges::find_if(
         formats,
-        [](const auto &f) {
-            return f.format == vk::Format::eB8G8R8A8Srgb && f.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear;
+        [&desired_format, &desired_color_space](const auto &f) {
+            return f.format == desired_format && f.colorSpace == desired_color_space;
         }
     );
 
