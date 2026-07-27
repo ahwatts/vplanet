@@ -26,7 +26,7 @@ gfx::TerrainPipeline::TerrainPipeline()
   m_index_buffer{nullptr},
   m_vertex_buffer_allocation{nullptr},
   m_index_buffer_allocation{nullptr}
-{}  
+{}
 
 gfx::TerrainPipeline::TerrainPipeline(Renderer *renderer) : TerrainPipeline() {
     m_renderer = renderer;
@@ -152,11 +152,11 @@ void gfx::TerrainPipeline::initPipeline() {
     vk::PipelineVertexInputStateCreateInfo vertex_input_ci = vk::PipelineVertexInputStateCreateInfo{}
         .setVertexBindingDescriptions(bind_desc)
         .setVertexAttributeDescriptions(attr_desc);
-    
+
     vk::PipelineInputAssemblyStateCreateInfo input_assembly_ci{
         .topology = vk::PrimitiveTopology::eTriangleList,
     };
-    
+
     vk::PipelineViewportStateCreateInfo viewport_ci{
         .viewportCount = 1,
         .scissorCount = 1,
@@ -187,9 +187,9 @@ void gfx::TerrainPipeline::initPipeline() {
 
     vk::PipelineColorBlendAttachmentState blend_attachment{
         .blendEnable = vk::False,
-        .colorWriteMask = vk::ColorComponentFlagBits::eR | 
-            vk::ColorComponentFlagBits::eG | 
-            vk::ColorComponentFlagBits::eB | 
+        .colorWriteMask = vk::ColorComponentFlagBits::eR |
+            vk::ColorComponentFlagBits::eG |
+            vk::ColorComponentFlagBits::eB |
             vk::ColorComponentFlagBits::eA,
     };
 
@@ -225,6 +225,6 @@ void gfx::TerrainPipeline::initPipeline() {
     pipeline_ci.get<vk::GraphicsPipelineCreateInfo>().setStages(shader_stages);
     pipeline_ci.get<vk::PipelineRenderingCreateInfo>()
         .setColorAttachmentFormats(swapchain_format.format);
-    
+
     m_pipeline = device.createGraphicsPipeline(nullptr, pipeline_ci.get<vk::GraphicsPipelineCreateInfo>());
 }

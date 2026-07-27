@@ -22,7 +22,7 @@ namespace gfx {
     class System {
     public:
         static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
-        
+
         System(GLFWwindow *window, bool debug);
         ~System();
 
@@ -71,14 +71,14 @@ namespace gfx {
         uint32_t chooseMemoryType(uint32_t type_filter, VkMemoryPropertyFlags properties) const;
 
         std::pair<vk::raii::Buffer, VmaAllocation> createBuffer(
-            vk::DeviceSize size, 
+            vk::DeviceSize size,
             vk::BufferUsageFlags usage,
             VmaAllocationCreateFlags allocation_flags,
             const std::optional<std::string> &name
         );
         std::pair<vk::raii::Buffer, VmaAllocation> createBufferWithData(
-            const void *data, 
-            size_t size, 
+            const void *data,
+            size_t size,
             vk::BufferUsageFlags usage,
             VmaAllocationCreateFlags allocation_flags,
             const std::optional<std::string> &name

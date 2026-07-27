@@ -45,7 +45,7 @@ Terrain::Terrain(float radius, int refinements, const NoiseFunction &noise)
     for (size_t i = 0; i < pne.positions.size(); ++i) {
         glm::vec3 &pos = pne.positions[i];
         double n = noise(pos.x, pos.y, pos.z);
-        pos *= n/8.0 + 1.0;
+        pos *= n/5.0 + 1.0;
     }
 
     std::vector<glm::vec3> normals = computeNormals(pne);

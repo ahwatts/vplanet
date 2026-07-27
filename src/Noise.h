@@ -3,68 +3,63 @@
 #ifndef _VPLANET_NOISE_H_
 #define _VPLANET_NOISE_H_
 
+#include <memory>
+
 #include "Curve.h"
-
-class PermutationTable {
-public:
-    PermutationTable();
-    ~PermutationTable();
-
-    unsigned char table[512];
-};
 
 class NoiseFunction {
 public:
-    NoiseFunction();
-    virtual ~NoiseFunction();
+    NoiseFunction() {};
+    virtual ~NoiseFunction() {};
 
-    // virtual double operator()(double x) const = 0;
     virtual double operator()(double x, double y) const = 0;
     virtual double operator()(double x, double y, double z) const = 0;
+};
+
+struct AngleCT {
+    double cos, sin;
 };
 
 class Perlin : public NoiseFunction {
 public:
     Perlin();
-    Perlin(double x_scale, double y_scale, double z_scale);
     virtual ~Perlin();
 
-    void setScales(double x, double y);
-    void setScales(double x, double y, double z);
-
     // virtual double operator()(double x) const;
     virtual double operator()(double x, double y) const;
     virtual double operator()(double x, double y, double z) const;
 
 private:
+    static constexpr int NUM_PERMUTATIONS = 256;
+    static_assert(NUM_PERMUTATIONS > 0 && NUM_PERMUTATIONS <= 256, "NUM_PERMUTATIONS must be between 1 and 256, inclusive");
+    std::array<uint8_t, NUM_PERMUTATIONS> m_perms_x, m_perms_y, m_perms_z;
+    std::array<AngleCT, NUM_PERMUTATIONS> m_thetas, m_phis;
+
+    int hash2d(int i, int j) const;
+    int hash3d(int i, int j, int k) const;
+
     static double fade(double t);
     static double lerp(double t, double a, double b);
-
-    static double grad(int hash, double x, double y);
-    static double grad(int hash, double x, double y, double z);
-
-    PermutationTable m_permutation;
-    double m_x_scale, m_y_scale, m_z_scale;
 };
 
-class Octave : public NoiseFunction {
+class Turbulence : public NoiseFunction {
 public:
-    Octave(const NoiseFunction &base, int octaves, double persistence);
-    virtual ~Octave();
+    Turbulence(std::shared_ptr<NoiseFunction> base, int depth);
+    virtual ~Turbulence();
 
     // virtual double operator()(double x) const;
     virtual double operator()(double x, double y) const;
     virtual double operator()(double x, double y, double z) const;
 
 private:
-    const NoiseFunction &m_noise;
-    int m_octaves;
-    double m_persistence;
+    std::shared_ptr<NoiseFunction> m_base;
+    int m_depth;
+    // double m_persistence;
 };
 
 class Curve : public NoiseFunction {
 public:
-    Curve(const NoiseFunction &base, const CubicSpline &curve);
+    Curve(std::shared_ptr<NoiseFunction> base, std::shared_ptr<CubicSpline> curve);
     virtual ~Curve();
 
     // virtual double operator()(double x) const;
@@ -72,8 +67,8 @@ public:
     virtual double operator()(double x, double y, double z) const;
 
 private:
-    const NoiseFunction &m_noise;
-    const CubicSpline &m_curve;
+    std::shared_ptr<NoiseFunction> m_base;
+    std::shared_ptr<CubicSpline> m_curve;
 };
 
 #endif

@@ -166,3 +166,14 @@ target_link_libraries(vplanet PUBLIC
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   set_source_files_properties(src/VmaUsage.cpp PROPERTIES COMPILE_OPTIONS "-w")
 endif()
+
+add_executable(perlintest
+  src/Curve.cpp
+  src/Noise.cpp
+  src/perlintest.cpp)
+
+target_compile_features(perlintest PUBLIC cxx_std_23)
+target_include_directories(perlintest PUBLIC vendor/stb)
+
+target_link_libraries(perlintest PUBLIC
+  ${glm_library})

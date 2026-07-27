@@ -21,19 +21,21 @@ Application::Application(GLFWwindow *window)
     glfwSetWindowUserPointer(m_window, this);
     glfwSetKeyCallback(m_window, keypressCallback);
 
-    const Perlin base_noise{2.0, 2.0, 2.0};
-    const Octave octave_noise{base_noise, 4, 0.3};
-    CubicSpline spline;
-    spline
+    std::shared_ptr<CubicSpline> spline = std::make_shared<CubicSpline>();
+    (*spline)
         .addControlPoint(-1.0, -1.0)
         .addControlPoint(-0.5, -0.5)
         .addControlPoint(0.0, -0.1)
-        .addControlPoint(0.5, 0.8)
-        .addControlPoint(0.75, 1.2)
-        .addControlPoint(1.0, 1.2);
-    const Curve curved_noise{octave_noise, spline};
+        .addControlPoint(0.6, 0.6)
+        .addControlPoint(0.9, 0.9)
+        .addControlPoint(1.0, 0.9);
 
-    Terrain terrain{2.0, 5, curved_noise};
+    std::shared_ptr<NoiseFunction> noise;
+    noise = std::make_shared<Perlin>();
+    noise = std::make_shared<Turbulence>(noise, 4);
+    noise = std::make_shared<Curve>(noise, spline);
+
+    Terrain terrain{2.0, 5, *noise};
     m_gfx.setTerrainGeometry(terrain.vertices(), terrain.elements());
 
     Ocean ocean{1.97f, 5};
