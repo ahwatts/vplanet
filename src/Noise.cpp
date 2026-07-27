@@ -45,7 +45,7 @@ Perlin::Perlin()
     }
     std::shuffle(m_perms_x.begin(), m_perms_x.end(), engine);
     std::shuffle(m_perms_y.begin(), m_perms_y.end(), engine);
-    std::shuffle(m_perms_z.begin(), m_perms_y.end(), engine);
+    std::shuffle(m_perms_z.begin(), m_perms_z.end(), engine);
 }
 
 Perlin::~Perlin() {}

@@ -3,6 +3,7 @@
 #ifndef _VPLANET_NOISE_H_
 #define _VPLANET_NOISE_H_
 
+#include <array>
 #include <memory>
 
 #include "Curve.h"
@@ -30,7 +31,7 @@ public:
     virtual double operator()(double x, double y, double z) const;
 
 private:
-    static constexpr int NUM_PERMUTATIONS = 256;
+    static constexpr unsigned int NUM_PERMUTATIONS = 256;
     static_assert(NUM_PERMUTATIONS > 0 && NUM_PERMUTATIONS <= 256, "NUM_PERMUTATIONS must be between 1 and 256, inclusive");
     std::array<uint8_t, NUM_PERMUTATIONS> m_perms_x, m_perms_y, m_perms_z;
     std::array<AngleCT, NUM_PERMUTATIONS> m_thetas, m_phis;
