@@ -6,12 +6,14 @@
 #include "vulkan.h"
 
 #include "gfx/System.h"
+#include "Camera.h"
 
 class Application {
 public:
     Application(GLFWwindow *window);
 
     void run();
+    void update(float dt);
 
     static void keypressCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
     void handleKeypress(GLFWwindow *window, int key, int scancode, int action, int mods);
@@ -20,6 +22,8 @@ private:
     GLFWwindow *m_window;
     int m_window_width, m_window_height;
     gfx::System m_gfx;
+    Camera m_camera;
+    int m_rotate_azimuth, m_rotate_latitude;
 };
 
 #endif

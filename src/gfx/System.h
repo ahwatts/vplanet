@@ -53,6 +53,7 @@ namespace gfx {
         void writeOceanTransform();
         void writeOceanTransform(uint32_t frame_index);
 
+        const ViewProjectionTransform& viewProjectionTransform() const;
         void setViewProjectionTransform(const ViewProjectionTransform &xform);
         void writeViewProjectionTransform();
         void writeViewProjectionTransform(uint32_t frame_index);

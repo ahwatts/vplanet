@@ -165,6 +165,10 @@ const vk::raii::DescriptorSetLayout &gfx::SceneUniformSet::descriptorSetLayout()
     return m_uniforms->sceneDescriptorSetLayout();
 }
 
+const gfx::ViewProjectionTransform& gfx::SceneUniformSet::viewProjectionTransform() const {
+    return m_view_projection;    
+}
+
 void gfx::SceneUniformSet::setTransforms(const ViewProjectionTransform &xform) {
     m_view_projection = xform;
 }

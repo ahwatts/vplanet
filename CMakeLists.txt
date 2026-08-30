@@ -142,6 +142,7 @@ add_executable(vplanet
     src/gfx/TerrainPipeline.cpp
     src/gfx/Uniforms.cpp
     src/Application.cpp
+    src/Camera.cpp
     src/Curve.cpp
     src/Models.cpp
     src/Noise.cpp

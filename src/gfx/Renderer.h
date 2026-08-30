@@ -31,6 +31,7 @@ namespace gfx {
         TerrainPipeline& terrainPipeline();
         OceanPipeline& oceanPipeline();
 
+        const ViewProjectionTransform& viewProjectionTransform() const;
         void setViewProjectionTransform(const ViewProjectionTransform &xform);
         void writeViewProjectionTransform(uint32_t buffer_index);
 

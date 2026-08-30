@@ -42,6 +42,10 @@ gfx::OceanPipeline& gfx::Renderer::oceanPipeline() {
     return m_ocean_pipeline;
 }
 
+const gfx::ViewProjectionTransform& gfx::Renderer::viewProjectionTransform() const {
+    return m_uniform_set.viewProjectionTransform();
+}
+
 void gfx::Renderer::setViewProjectionTransform(const ViewProjectionTransform &xform) {
     m_uniform_set.setTransforms(xform);
 }

@@ -170,6 +170,10 @@ void gfx::System::writeOceanTransform(uint32_t frame_index) {
     m_renderer->oceanPipeline().writeTransform(frame_index);
 }
 
+const gfx::ViewProjectionTransform& gfx::System::viewProjectionTransform() const {
+    return m_renderer->viewProjectionTransform();
+}
+
 void gfx::System::setViewProjectionTransform(const ViewProjectionTransform &xform) {
     m_renderer->setViewProjectionTransform(xform);
 }

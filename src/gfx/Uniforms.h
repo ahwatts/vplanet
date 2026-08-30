@@ -84,6 +84,7 @@ namespace gfx {
         static vk::raii::DescriptorSetLayout createDescriptorSetLayout(System *gfx);
         const vk::raii::DescriptorSetLayout &descriptorSetLayout() const;
 
+        const ViewProjectionTransform &viewProjectionTransform() const;
         void setTransforms(const ViewProjectionTransform &xform);
         void updateViewProjectionBuffer(uint32_t buffer_index);
 

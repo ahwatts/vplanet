@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <iostream>
+#include <numbers>
 
 #include "glm.h"
 
@@ -15,7 +16,10 @@ Application::Application(GLFWwindow *window)
     : m_window{window},
       m_window_width{0},
       m_window_height{0},
-      m_gfx{window, true}
+      m_gfx{window, true},
+      m_camera{{0.0, 0.0, 5.0}, {0.0, 0.0, 0.0}},
+      m_rotate_azimuth{0},
+      m_rotate_latitude{0}
 {
     glfwGetFramebufferSize(window, &m_window_width, &m_window_height);
     glfwSetWindowUserPointer(m_window, this);
@@ -35,7 +39,7 @@ Application::Application(GLFWwindow *window)
     noise = std::make_shared<Turbulence>(noise, 4);
     noise = std::make_shared<Curve>(noise, spline);
 
-    Terrain terrain{2.0, 5, *noise};
+    Terrain terrain{2.0, 6, *noise};
     m_gfx.setTerrainGeometry(terrain.vertices(), terrain.elements());
 
     Ocean ocean{1.97f, 5};
@@ -43,10 +47,7 @@ Application::Application(GLFWwindow *window)
 
     gfx::ViewProjectionTransform vp_xform{};
 
-    vp_xform.view = glm::lookAt(
-        glm::vec3{0.0, 0.0, 5.0},
-        glm::vec3{0.0, 0.0, 0.0},
-        glm::vec3{0.0, 1.0, 0.0});
+    vp_xform.view = m_camera.viewTransformation();
     vp_xform.view_inv = glm::inverse(vp_xform.view);
     vp_xform.projection = glm::perspectiveFov(
         20.0f,
@@ -66,14 +67,31 @@ Application::Application(GLFWwindow *window)
 
 void Application::run() {
     glm::mat4x4 model{1.0};
+    gfx::ViewProjectionTransform vp_xform{};
+    vp_xform.projection = glm::perspectiveFov(
+        20.0f,
+        static_cast<float>(m_window_width),
+        static_cast<float>(m_window_height),
+        0.1f, 100.0f);
+    vp_xform.projection[1][1] *= -1;
 
     try {
         static auto start_time = std::chrono::high_resolution_clock::now();
+        static auto last_time = start_time;
         while (!glfwWindowShouldClose(m_window)) {
             auto current_time = std::chrono::high_resolution_clock::now();
             float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
-            model = glm::rotate(glm::mat4x4{1.0}, time * glm::radians(15.0f), glm::vec3{0.0, 1.0, 0.0});
+            float delta_time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - last_time).count();
+            last_time = current_time;
 
+            update(delta_time);
+
+            vp_xform.view = m_camera.viewTransformation();
+            vp_xform.view_inv = glm::inverse(vp_xform.view_inv);
+            m_gfx.setViewProjectionTransform(vp_xform);
+            m_gfx.writeViewProjectionTransform();
+            
+            model = glm::rotate(glm::mat4x4{1.0}, time * glm::radians(15.0f), glm::vec3{0.0, 1.0, 0.0});
             m_gfx.setTerrainTransform(model);
             m_gfx.setOceanTransform(model);
             m_gfx.writeTerrainTransform();
@@ -90,6 +108,25 @@ void Application::run() {
     }
 }
 
+constexpr float DEG_TO_RAD = std::numbers::pi / 180.0f;
+
+void Application::update(float dt) {
+    float dtheta = 0.0, dphi = 0.0;
+    if (m_rotate_azimuth != 0) {
+        dtheta = m_rotate_azimuth * 0.025 * DEG_TO_RAD;
+    }
+    if (m_rotate_latitude != 0) {
+        dphi = m_rotate_latitude * 0.025 * DEG_TO_RAD;
+    }
+    if (m_rotate_azimuth || m_rotate_latitude) {
+        m_camera.rotate(dtheta, dphi);
+    }
+
+    // Make sure we don't wind up with a runaway rotation.
+    m_rotate_azimuth = std::clamp(m_rotate_azimuth, -1, 1);
+    m_rotate_latitude = std::clamp(m_rotate_latitude, -1, 1);
+}
+
 void Application::keypressCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
     Application *app = (Application*)glfwGetWindowUserPointer(window);
     if (app != nullptr) {
@@ -98,12 +135,36 @@ void Application::keypressCallback(GLFWwindow *window, int key, int scancode, in
 }
 
 void Application::handleKeypress(GLFWwindow *window, int key, int scancode, int action, int mods) {
-    if (key == GLFW_KEY_ESCAPE) {
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
         glfwSetWindowShouldClose(m_window, GLFW_TRUE);
+    } else if (key == GLFW_KEY_UP) {
+        if (action == GLFW_PRESS) {
+            m_rotate_latitude += 1;
+        } else if (action == GLFW_RELEASE) {
+            m_rotate_latitude -= 1;
+        }
+    } else if (key == GLFW_KEY_DOWN) {
+        if (action == GLFW_PRESS) {
+            m_rotate_latitude -= 1;
+        } else if (action == GLFW_RELEASE) {
+            m_rotate_latitude += 1;
+        }    
+    } else if (key == GLFW_KEY_LEFT) {
+        if (action == GLFW_PRESS) {
+            m_rotate_azimuth += 1;
+        } else if (action == GLFW_RELEASE) {
+            m_rotate_azimuth -= 1;
+        }
+    } else if (key == GLFW_KEY_RIGHT) {
+        if (action == GLFW_PRESS) {
+            m_rotate_azimuth -= 1;
+        } else if (action == GLFW_RELEASE) {
+            m_rotate_azimuth += 1;
+        }
     } else {
         const char *key_name = glfwGetKeyName(key, scancode);
         if (key_name == nullptr) {
-            std::cout << "Unknown key";
+            std::cout << "Unknown key (key = " << key << ", scancode = " << scancode << ")";
         } else {
             std::cout << key_name << " key";
         }
