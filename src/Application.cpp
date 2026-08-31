@@ -12,14 +12,19 @@
 #include "Noise.h"
 #include "Terrain.h"
 
+constexpr glm::vec3 DEFAULT_POSITION{0.0, 0.0, 5.0};
+constexpr glm::vec3 DEFAULT_FOCUS_POINT{0.0, 0.0, 0.0};
+
 Application::Application(GLFWwindow *window)
     : m_window{window},
       m_window_width{0},
       m_window_height{0},
       m_gfx{window, true},
-      m_camera{{0.0, 0.0, 5.0}, {0.0, 0.0, 0.0}},
+      m_camera{DEFAULT_POSITION, DEFAULT_FOCUS_POINT},
       m_rotate_azimuth{0},
-      m_rotate_latitude{0}
+      m_rotate_latitude{0},
+      m_rotating{true},
+      m_rotation_angle{0.0}
 {
     glfwGetFramebufferSize(window, &m_window_width, &m_window_height);
     glfwSetWindowUserPointer(m_window, this);
@@ -91,7 +96,7 @@ void Application::run() {
             m_gfx.setViewProjectionTransform(vp_xform);
             m_gfx.writeViewProjectionTransform();
             
-            model = glm::rotate(glm::mat4x4{1.0}, time * glm::radians(15.0f), glm::vec3{0.0, 1.0, 0.0});
+            model = glm::rotate(glm::mat4x4{1.0}, glm::radians(m_rotation_angle), glm::vec3{0.0, 1.0, 0.0});
             m_gfx.setTerrainTransform(model);
             m_gfx.setOceanTransform(model);
             m_gfx.writeTerrainTransform();
@@ -108,18 +113,20 @@ void Application::run() {
     }
 }
 
-constexpr float DEG_TO_RAD = std::numbers::pi / 180.0f;
-
 void Application::update(float dt) {
     float dtheta = 0.0, dphi = 0.0;
     if (m_rotate_azimuth != 0) {
-        dtheta = m_rotate_azimuth * 0.025 * DEG_TO_RAD;
+        dtheta = m_rotate_azimuth * 45.0 * dt;
     }
     if (m_rotate_latitude != 0) {
-        dphi = m_rotate_latitude * 0.025 * DEG_TO_RAD;
+        dphi = m_rotate_latitude * 45.0 * dt;
     }
     if (m_rotate_azimuth || m_rotate_latitude) {
-        m_camera.rotate(dtheta, dphi);
+        m_camera.rotate(glm::radians(dtheta), glm::radians(dphi));
+    }
+
+    if (m_rotating) {
+        m_rotation_angle = std::fmod(m_rotation_angle + (30.0*dt), 360.0);
     }
 
     // Make sure we don't wind up with a runaway rotation.
@@ -161,12 +168,16 @@ void Application::handleKeypress(GLFWwindow *window, int key, int scancode, int 
         } else if (action == GLFW_RELEASE) {
             m_rotate_azimuth += 1;
         }
+    } else if (key == GLFW_KEY_H && action == GLFW_PRESS) {
+        m_camera.reset(DEFAULT_POSITION, DEFAULT_FOCUS_POINT);
+    } else if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
+        m_rotating = !m_rotating;
     } else {
         const char *key_name = glfwGetKeyName(key, scancode);
         if (key_name == nullptr) {
             std::cout << "Unknown key (key = " << key << ", scancode = " << scancode << ")";
         } else {
-            std::cout << key_name << " key";
+            std::cout << key_name << " key (key = " << key << ", scancode = " << scancode << ")";
         }
 
         if (action == GLFW_PRESS) {

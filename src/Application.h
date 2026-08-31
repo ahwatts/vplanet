@@ -24,6 +24,8 @@ private:
     gfx::System m_gfx;
     Camera m_camera;
     int m_rotate_azimuth, m_rotate_latitude;
+    bool m_rotating;
+    float m_rotation_angle;
 };
 
 #endif

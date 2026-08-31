@@ -15,6 +15,7 @@ public:
     void position(const glm::vec3 &new_position) { m_position = new_position; }
 
     void reset();
+    void reset(const glm::vec3 &position, const glm::vec3 &focus);
     void rotate(float dtheta, float dphi);
     void zoom(float dr);
 

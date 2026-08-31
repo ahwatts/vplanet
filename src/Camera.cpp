@@ -20,6 +20,11 @@ void Camera::reset() {
     m_position = DEFAULT_POSITION;
 }
 
+void Camera::reset(const glm::vec3 &position, const glm::vec3 &focus) {
+    m_position = position;
+    m_focus_point = focus;
+}
+
 void Camera::rotate(float dtheta, float dphi) {
     glm::vec3 y_axis{0.0, 1.0, 0.0};
     glm::vec3 cam_dir = m_position - m_focus_point;
